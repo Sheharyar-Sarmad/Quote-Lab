@@ -1,0 +1,15 @@
+# Web framework
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+pydantic==2.9.2
+
+# Deep learning / inference
+tensorflow-cpu==2.21.0
+keras==3.15.1
+
+# Data / numerics
+numpy==2.5.3
+pandas==2.2.3
+
+# Model serialization
+h5py==3.14.0
