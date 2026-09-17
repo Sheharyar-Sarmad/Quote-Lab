@@ -17,10 +17,6 @@ dist/
 .pnpm-store/
 .next-env.d.ts
 
-# ─── ML artifacts ───────────────────────────────
-*.h5
-*.keras
-*.pkl
 
 # ─── Secrets — CRITICAL ─────────────────────────
 .env
