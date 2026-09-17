@@ -2,7 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   AnimatePresence,
   motion,
@@ -38,6 +44,12 @@ import { useTheme } from "next-themes";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { cn } from "@/lib/utils";
 
+declare global {
+  interface Window {
+    __lenis?: import("lenis").default;
+  }
+}
+
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 const GRADIENT_TEXT =
@@ -48,7 +60,7 @@ const CARD_BASE =
 
 const HEADER_HEIGHT_CSS = "4rem";
 
-/* ✅ Single source of truth for repo links */
+/* Single source of truth for repo links */
 const SOURCE_REPO = "https://github.com/Sheharyar-Sarmad/Quote-Lab";
 
 const reveal: Variants = {
@@ -88,11 +100,19 @@ function ScrollFade({ children }: { children: ReactNode }) {
     offset: ["start end", "end start"],
   });
 
-  const opacity = useTransform(scrollYProgress, [0, 0.22, 0.78, 1], [0.25, 1, 1, 0.25]);
+  const opacity = useTransform(
+    scrollYProgress,
+    [0, 0.22, 0.78, 1],
+    [0.25, 1, 1, 0.25],
+  );
   const y = useTransform(scrollYProgress, [0, 0.22, 0.78, 1], [48, 0, 0, -48]);
 
   return (
-    <motion.div ref={ref} style={{ opacity, y }} className="will-change-transform">
+    <motion.div
+      ref={ref}
+      style={{ opacity, y }}
+      className="will-change-transform"
+    >
       {children}
     </motion.div>
   );
@@ -201,7 +221,11 @@ function SplitTextOnMount({
             className="inline-block"
             initial={{ y: "110%", opacity: 0 }}
             animate={{ y: "0%", opacity: 1 }}
-            transition={{ duration: 0.9, delay: delay + index * 0.06, ease: EASE }}
+            transition={{
+              duration: 0.9,
+              delay: delay + index * 0.06,
+              ease: EASE,
+            }}
           >
             {word}
             {index < words.length - 1 ? "\u00A0" : ""}
@@ -235,8 +259,14 @@ function SplitTextOnScroll({
           <motion.span
             className="inline-block"
             initial={{ y: "110%", opacity: 0 }}
-            animate={inView ? { y: "0%", opacity: 1 } : { y: "110%", opacity: 0 }}
-            transition={{ duration: 0.9, delay: delay + index * 0.05, ease: EASE }}
+            animate={
+              inView ? { y: "0%", opacity: 1 } : { y: "110%", opacity: 0 }
+            }
+            transition={{
+              duration: 0.9,
+              delay: delay + index * 0.05,
+              ease: EASE,
+            }}
           >
             {word}
             {index < words.length - 1 ? "\u00A0" : ""}
@@ -331,7 +361,11 @@ function TiltCard({
       ref={ref}
       onMouseMove={handleMove}
       onMouseLeave={reset}
-      style={{ rotateX: springX, rotateY: springY, transformStyle: "preserve-3d" }}
+      style={{
+        rotateX: springX,
+        rotateY: springY,
+        transformStyle: "preserve-3d",
+      }}
       className={cn(
         "group relative h-full overflow-hidden rounded-2xl",
         CARD_BASE,
@@ -359,7 +393,15 @@ function TiltCard({
   );
 }
 
-function Counter({ to, duration = 2, suffix = "" }: { to: number; duration?: number; suffix?: string }) {
+function Counter({
+  to,
+  duration = 2,
+  suffix = "",
+}: {
+  to: number;
+  duration?: number;
+  suffix?: string;
+}) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: "-60px" });
   const [value, setValue] = useState(0);
@@ -408,7 +450,9 @@ function SectionHeading({
       viewport={{ once: true, margin: "-80px" }}
       className={cn(
         "flex flex-col gap-4",
-        align === "center" ? "items-center text-center" : "items-start text-left",
+        align === "center"
+          ? "items-center text-center"
+          : "items-start text-left",
       )}
     >
       <motion.span
@@ -458,7 +502,13 @@ function FramedImage({
       )}
       style={{ width: size, height: size }}
     >
-      <Image src={src} alt={alt} fill sizes={`${size}px`} className="object-cover" />
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        sizes={`${size}px`}
+        className="object-cover"
+      />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-primary/20 via-transparent to-primary/10" />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/30 to-transparent" />
     </div>
@@ -466,10 +516,27 @@ function FramedImage({
 }
 
 const MARQUEE_ITEMS = [
-  "TensorFlow","Keras","LSTM","RNN","NumPy","Pandas","Python","FastAPI",
-  "Pydantic","Uvicorn","Next.js 15","React 19","TypeScript","Tailwind CSS",
-  "shadcn/ui","Framer Motion","Phosphor Icons","Groq LPU","Web Speech API",
-  "Vercel","Colab T4 GPU",
+  "TensorFlow",
+  "Keras",
+  "LSTM",
+  "RNN",
+  "NumPy",
+  "Pandas",
+  "Python",
+  "FastAPI",
+  "Pydantic",
+  "Uvicorn",
+  "Next.js 15",
+  "React 19",
+  "TypeScript",
+  "Tailwind CSS",
+  "shadcn/ui",
+  "Framer Motion",
+  "Phosphor Icons",
+  "Groq LPU",
+  "Web Speech API",
+  "Vercel",
+  "Colab T4 GPU",
 ] as const;
 
 const STATS = [
@@ -510,18 +577,53 @@ const PIPELINE = [
 ] as const;
 
 const FEATURES = [
-  { icon: Lightning, title: "Sub-100ms inference", description: "FastAPI + optimized model loading keeps latency minimal so the UX feels instant." },
-  { icon: ShieldCheck, title: "Input validation", description: "Every payload is schema-checked with Pydantic before it touches the model." },
-  { icon: Rocket, title: "Deploy-ready", description: "Containerized FastAPI backend + Vercel frontend — one push to ship." },
-  { icon: ChatCircleDots, title: "Context-aware", description: "Groq keeps completions coherent by picking up where the LSTM stops." },
+  {
+    icon: Lightning,
+    title: "Sub-100ms inference",
+    description:
+      "FastAPI + optimized model loading keeps latency minimal so the UX feels instant.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Input validation",
+    description:
+      "Every payload is schema-checked with Pydantic before it touches the model.",
+  },
+  {
+    icon: Rocket,
+    title: "Deploy-ready",
+    description:
+      "Containerized FastAPI backend + Vercel frontend — one push to ship.",
+  },
+  {
+    icon: ChatCircleDots,
+    title: "Context-aware",
+    description:
+      "Groq keeps completions coherent by picking up where the LSTM stops.",
+  },
 ] as const;
 
 const QUOTES = [
-  { text: "The world as we have created it is a process of our thinking. It cannot be changed without changing our thinking.", author: "Albert Einstein" },
-  { text: "It is our choices, Harry, that show what we truly are, far more than our abilities.", author: "J.K. Rowling" },
-  { text: "There are only two ways to live your life. One is as though nothing is a miracle. The other is as though everything is a miracle.", author: "Albert Einstein" },
-  { text: "Imperfection is beauty, madness is genius and it's better to be absolutely ridiculous than absolutely boring.", author: "Marilyn Monroe" },
-  { text: "Two things are infinite: the universe and human stupidity; and I'm not sure about the universe.", author: "Albert Einstein" },
+  {
+    text: "The world as we have created it is a process of our thinking. It cannot be changed without changing our thinking.",
+    author: "Albert Einstein",
+  },
+  {
+    text: "It is our choices, Harry, that show what we truly are, far more than our abilities.",
+    author: "J.K. Rowling",
+  },
+  {
+    text: "There are only two ways to live your life. One is as though nothing is a miracle. The other is as though everything is a miracle.",
+    author: "Albert Einstein",
+  },
+  {
+    text: "Imperfection is beauty, madness is genius and it's better to be absolutely ridiculous than absolutely boring.",
+    author: "Marilyn Monroe",
+  },
+  {
+    text: "Two things are infinite: the universe and human stupidity; and I'm not sure about the universe.",
+    author: "Albert Einstein",
+  },
   { text: "Not all those who wander are lost.", author: "J.R.R. Tolkien" },
 ] as const;
 
@@ -557,10 +659,30 @@ const TECH_STACK = [
 ] as const;
 
 const CONNECT_CARDS = [
-  { icon: GithubLogo, title: "GitHub Profile", handle: "@Sheharyar-Sarmad", href: "https://github.com/Sheharyar-Sarmad" },
-  { icon: GitFork, title: "Source Repo", handle: "Quote-Lab", href: SOURCE_REPO },
-  { icon: LinkedinLogo, title: "LinkedIn", handle: "Sheharyar Sarmad", href: "https://www.linkedin.com/in/sheharyar-sarmad-9b7736289/" },
-  { icon: EnvelopeSimple, title: "Email", handle: "developersheharyar2010@gmail.com", href: "https://mail.google.com/mail/u/0/?fs=1&to=developersheharyar2010@gmail.com&tf=cm" },
+  {
+    icon: GithubLogo,
+    title: "GitHub Profile",
+    handle: "@Sheharyar-Sarmad",
+    href: "https://github.com/Sheharyar-Sarmad",
+  },
+  {
+    icon: GitFork,
+    title: "Source Repo",
+    handle: "Quote-Lab",
+    href: SOURCE_REPO,
+  },
+  {
+    icon: LinkedinLogo,
+    title: "LinkedIn",
+    handle: "Sheharyar Sarmad",
+    href: "https://www.linkedin.com/in/sheharyar-sarmad-9b7736289/",
+  },
+  {
+    icon: EnvelopeSimple,
+    title: "Email",
+    handle: "developersheharyar2010@gmail.com",
+    href: "https://mail.google.com/mail/u/0/?fs=1&to=developersheharyar2010@gmail.com&tf=cm",
+  },
 ] as const;
 
 const FOOTER_LINKS = {
@@ -571,9 +693,21 @@ const FOOTER_LINKS = {
     { label: "Model", href: "#model", external: false },
   ],
   connect: [
-    { label: "GitHub", href: "https://github.com/Sheharyar-Sarmad", external: true },
-    { label: "LinkedIn", href: "https://www.linkedin.com/in/sheharyar-sarmad-9b7736289/", external: true },
-    { label: "Email", href: "https://mail.google.com/mail/u/0/?fs=1&to=developersheharyar2010@gmail.com&tf=cm", external: true },
+    {
+      label: "GitHub",
+      href: "https://github.com/Sheharyar-Sarmad",
+      external: true,
+    },
+    {
+      label: "LinkedIn",
+      href: "https://www.linkedin.com/in/sheharyar-sarmad-9b7736289/",
+      external: true,
+    },
+    {
+      label: "Email",
+      href: "https://mail.google.com/mail/u/0/?fs=1&to=developersheharyar2010@gmail.com&tf=cm",
+      external: true,
+    },
     { label: "Source repo", href: SOURCE_REPO, external: true },
   ],
   builtWith: [
@@ -586,7 +720,10 @@ const FOOTER_LINKS = {
 
 function Hero() {
   const ref = useRef<HTMLElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start start", "end start"],
+  });
   const contentY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
   const contentOpacity = useTransform(scrollYProgress, [0, 0.75], [1, 0]);
 
@@ -597,7 +734,10 @@ function Hero() {
       style={{ height: `calc(100vh - ${HEADER_HEIGHT_CSS})` }}
       className="relative isolate flex flex-col items-center justify-center overflow-hidden px-4"
     >
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-background/40 via-background/20 to-background" />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-background/40 via-background/20 to-background"
+      />
 
       <motion.div
         aria-hidden
@@ -613,7 +753,10 @@ function Hero() {
       />
 
       <motion.div
-        style={{ y: contentY, opacity: contentOpacity }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4, ease: EASE }}
+        style={{ y: contentY }}
         className="relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center text-center"
       >
         <motion.span
@@ -629,7 +772,11 @@ function Hero() {
         <h1 className="mt-7 font-heading text-4xl font-semibold leading-[1.05] tracking-tight text-balance sm:text-6xl md:text-7xl lg:text-8xl">
           <SplitTextOnMount text="Complete any quote," delay={0.15} />
           <br />
-          <SplitTextOnMount text="powered by AI." delay={0.35} className={GRADIENT_TEXT} />
+          <SplitTextOnMount
+            text="powered by AI."
+            delay={0.35}
+            className={GRADIENT_TEXT}
+          />
         </h1>
 
         <motion.p
@@ -639,9 +786,8 @@ function Hero() {
           className="mt-6 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base md:text-lg"
         >
           QuoteLab is a full-stack AI experiment that predicts the next word
-          using a from-scratch LSTM (TensorFlow / Keras) trained on 3,038
-          famous quotes, then lets Groq finish the thought and voice bring
-          it to life.
+          using a from-scratch LSTM (TensorFlow / Keras) trained on 3,038 famous
+          quotes, then lets Groq finish the thought and voice bring it to life.
         </motion.p>
 
         <motion.div
@@ -651,16 +797,28 @@ function Hero() {
           className="mt-10 flex flex-col items-center gap-3 sm:flex-row"
         >
           <Magnetic>
-            <Link href="/prediction-lab" className="group inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:opacity-90">
+            <Link
+              href="/prediction-lab"
+              className="group inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:opacity-90"
+            >
               Open Prediction Lab
-              <ArrowRight weight="bold" className="size-4 transition-transform group-hover:translate-x-0.5" />
+              <ArrowRight
+                weight="bold"
+                className="size-4 transition-transform group-hover:translate-x-0.5"
+              />
             </Link>
           </Magnetic>
 
           <Magnetic>
-            <Link href="/about" className="group inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/40 px-6 py-3 text-sm font-medium backdrop-blur-xl transition-colors hover:border-primary/40">
+            <Link
+              href="/about"
+              className="group inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/40 px-6 py-3 text-sm font-medium backdrop-blur-xl transition-colors hover:border-primary/40"
+            >
               How it works
-              <ArrowUpRight weight="bold" className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              <ArrowUpRight
+                weight="bold"
+                className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+              />
             </Link>
           </Magnetic>
         </motion.div>
@@ -680,7 +838,10 @@ function Marquee() {
           transition={{ duration: 42, repeat: Infinity, ease: "linear" }}
         >
           {items.map((item, index) => (
-            <span key={`${item}-${index}`} className="flex shrink-0 items-center gap-10 whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
+            <span
+              key={`${item}-${index}`}
+              className="flex shrink-0 items-center gap-10 whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground"
+            >
               {item}
               <span className="size-1 rounded-full bg-primary/60" />
             </span>
@@ -717,7 +878,9 @@ function Stats() {
             <div className="relative mt-5 font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
               <Counter to={stat.value} suffix={stat.suffix} />
             </div>
-            <p className="relative mt-2 text-xs text-muted-foreground sm:text-sm">{stat.label}</p>
+            <p className="relative mt-2 text-xs text-muted-foreground sm:text-sm">
+              {stat.label}
+            </p>
           </motion.div>
         ))}
       </div>
@@ -727,18 +890,38 @@ function Stats() {
 
 function HowItWorks() {
   return (
-    <section id="how" className="relative scroll-mt-24 px-4 py-20 sm:px-6 md:px-10">
+    <section
+      id="how"
+      className="relative scroll-mt-24 px-4 py-20 sm:px-6 md:px-10"
+    >
       <div className="mx-auto max-w-6xl">
         <SectionHeading
           eyebrow="How it works"
-          title={<>From raw text to a <span className={GRADIENT_TEXT}>spoken reply</span></>}
+          title={
+            <>
+              From raw text to a{" "}
+              <span className={GRADIENT_TEXT}>spoken reply</span>
+            </>
+          }
           subtitle="Three stages, one request. Each layer is independently documented and open in the repo."
         />
 
-        <motion.div variants={revealSlow} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-80px" }} className="mt-14 flex justify-center">
+        <motion.div
+          variants={revealSlow}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-80px" }}
+          className="mt-14 flex justify-center"
+        >
           <div className="group relative w-full max-w-[520px] overflow-hidden rounded-2xl border border-border/60 ring-1 ring-white/15 dark:ring-white/20 shadow-[0_8px_32px_-12px_rgba(0,0,0,0.35)]">
             <div className="relative aspect-[16/10]">
-              <Image src="/groq-pipeline.png" alt="TensorFlow LSTM → Groq → Web Speech pipeline" fill sizes="(max-width: 640px) 100vw, 520px" className="object-cover opacity-80" />
+              <Image
+                src="/groq-pipeline.png"
+                alt="TensorFlow LSTM → Groq → Web Speech pipeline"
+                fill
+                sizes="(max-width: 640px) 100vw, 520px"
+                className="object-cover opacity-80"
+              />
             </div>
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-primary/25 via-background/40 to-transparent" />
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/60 to-transparent" />
@@ -749,23 +932,41 @@ function HowItWorks() {
           </div>
         </motion.div>
 
-        <motion.div variants={staggerSlow} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-80px" }} className="mt-14 grid gap-5 md:grid-cols-3">
+        <motion.div
+          variants={staggerSlow}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-80px" }}
+          className="mt-14 grid gap-5 md:grid-cols-3"
+        >
           {PIPELINE.map((item) => {
             const Icon = item.icon;
             return (
-              <motion.div key={item.step} variants={revealSlow} className="h-full">
+              <motion.div
+                key={item.step}
+                variants={revealSlow}
+                className="h-full"
+              >
                 <TiltCard href={item.href} label={item.title} className="p-6">
                   <CardGlow />
                   <div className="relative flex items-start justify-between">
                     <span className="inline-flex size-11 items-center justify-center rounded-xl border border-border/60 bg-primary/10 text-primary">
                       <Icon weight="duotone" className="size-5" />
                     </span>
-                    <span className="font-heading text-xs font-medium tracking-[0.2em] text-muted-foreground">{item.step}</span>
+                    <span className="font-heading text-xs font-medium tracking-[0.2em] text-muted-foreground">
+                      {item.step}
+                    </span>
                   </div>
                   <div className="relative mt-6">
-                    <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">{item.tag}</span>
-                    <h3 className="mt-2 font-heading text-lg font-semibold">{item.title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.description}</p>
+                    <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">
+                      {item.tag}
+                    </span>
+                    <h3 className="mt-2 font-heading text-lg font-semibold">
+                      {item.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                      {item.description}
+                    </p>
                   </div>
                   <div className="relative mt-6 flex items-center justify-between">
                     <CardButton label="Read the docs" />
@@ -785,18 +986,36 @@ function HowItWorks() {
 
 function Features() {
   return (
-    <section id="features" className="relative scroll-mt-24 px-4 py-20 sm:px-6 md:px-10">
+    <section
+      id="features"
+      className="relative scroll-mt-24 px-4 py-20 sm:px-6 md:px-10"
+    >
       <div className="mx-auto max-w-6xl">
         <SectionHeading
           eyebrow="Why it holds up"
-          title={<>Built for <span className={GRADIENT_TEXT}>real latency budgets</span></>}
+          title={
+            <>
+              Built for{" "}
+              <span className={GRADIENT_TEXT}>real latency budgets</span>
+            </>
+          }
           subtitle="Not a demo that falls over the moment a real user types something unexpected."
         />
-        <motion.div variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-80px" }} className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <motion.div
+          variants={stagger}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-80px" }}
+          className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
+        >
           {FEATURES.map((feature, index) => {
             const Icon = feature.icon;
             return (
-              <motion.div key={feature.title} variants={reveal} className={cn("group rounded-2xl p-6", CARD_BASE)}>
+              <motion.div
+                key={feature.title}
+                variants={reveal}
+                className={cn("group rounded-2xl p-6", CARD_BASE)}
+              >
                 <CardGlow />
                 <div className="relative flex items-start justify-between">
                   <span className="inline-flex size-11 items-center justify-center rounded-xl border border-border/60 bg-primary/10 text-primary">
@@ -806,8 +1025,12 @@ function Features() {
                     <Sparkle weight="bold" className="size-3.5" />
                   </span>
                 </div>
-                <h3 className="relative mt-5 font-heading text-base font-semibold">{feature.title}</h3>
-                <p className="relative mt-2 text-sm leading-relaxed text-muted-foreground">{feature.description}</p>
+                <h3 className="relative mt-5 font-heading text-base font-semibold">
+                  {feature.title}
+                </h3>
+                <p className="relative mt-2 text-sm leading-relaxed text-muted-foreground">
+                  {feature.description}
+                </p>
                 <div className="relative mt-5 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                   <span className="h-px flex-1 bg-border/60" />
                   <span>0{index + 1}</span>
@@ -842,7 +1065,12 @@ function Quotes() {
       <div className="mx-auto max-w-4xl">
         <SectionHeading
           eyebrow="The data"
-          title={<>Trained on the words of <span className={GRADIENT_TEXT}>the greats</span></>}
+          title={
+            <>
+              Trained on the words of{" "}
+              <span className={GRADIENT_TEXT}>the greats</span>
+            </>
+          }
           subtitle="3,038 quotes. 8,979 unique words. One model that learned them all."
         />
         <motion.div
@@ -854,10 +1082,27 @@ function Quotes() {
           onMouseLeave={() => setPaused(false)}
           className={cn("group mt-14 rounded-3xl p-8 sm:p-12", CARD_BASE)}
         >
-          <div aria-hidden className="pointer-events-none absolute inset-0 opacity-20" style={{ backgroundImage: "url(/quote-pattern.png)", backgroundSize: "400px 400px", backgroundRepeat: "repeat" }} />
-          <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/[0.08] via-background/60 to-primary/[0.06]" />
-          <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/60 via-background/80 to-background" />
-          <span aria-hidden className="pointer-events-none absolute -right-24 -top-24 size-64 rounded-full bg-primary/25 blur-3xl" />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-20"
+            style={{
+              backgroundImage: "url(/quote-pattern.png)",
+              backgroundSize: "400px 400px",
+              backgroundRepeat: "repeat",
+            }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/[0.08] via-background/60 to-primary/[0.06]"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/60 via-background/80 to-background"
+          />
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -right-24 -top-24 size-64 rounded-full bg-primary/25 blur-3xl"
+          />
 
           <div className="relative">
             <div className="flex items-start justify-between">
@@ -865,7 +1110,8 @@ function Quotes() {
                 <ChatCircleDots weight="duotone" className="size-5" />
               </span>
               <span className="font-heading text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                {String(index + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}
+                {String(index + 1).padStart(2, "0")} /{" "}
+                {String(total).padStart(2, "0")}
               </span>
             </div>
 
@@ -913,7 +1159,10 @@ function Quotes() {
                         className="block h-full rounded-full bg-primary"
                         initial={{ width: "0%" }}
                         animate={{ width: paused ? "0%" : "100%" }}
-                        transition={{ duration: paused ? 0 : 6, ease: "linear" }}
+                        transition={{
+                          duration: paused ? 0 : 6,
+                          ease: "linear",
+                        }}
                       />
                     ) : null}
                   </button>
@@ -938,24 +1187,53 @@ function Quotes() {
 
 function ModelSection() {
   return (
-    <section id="model" className="relative scroll-mt-24 px-4 py-20 sm:px-6 md:px-10">
+    <section
+      id="model"
+      className="relative scroll-mt-24 px-4 py-20 sm:px-6 md:px-10"
+    >
       <div className="mx-auto max-w-6xl">
         <SectionHeading
           eyebrow="Under the hood"
-          title={<>Built from scratch. <span className={GRADIENT_TEXT}>Trained on a notebook.</span></>}
+          title={
+            <>
+              Built from scratch.{" "}
+              <span className={GRADIENT_TEXT}>Trained on a notebook.</span>
+            </>
+          }
           subtitle="Written in TensorFlow / Keras, trained on Colab's free T4 GPU, then wrapped in a FastAPI service."
         />
-        <motion.div variants={staggerSlow} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-80px" }} className="mt-14 grid gap-5 lg:grid-cols-5">
+        <motion.div
+          variants={staggerSlow}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-80px" }}
+          className="mt-14 grid gap-5 lg:grid-cols-5"
+        >
           <motion.div variants={revealSlow} className="lg:col-span-3">
             <a
               href="https://www.tensorflow.org/tutorials/text/text_generation"
               target="_blank"
               rel="noreferrer noopener"
-              className={cn("group flex h-full flex-col rounded-3xl p-8", CARD_BASE)}
+              className={cn(
+                "group flex h-full flex-col rounded-3xl p-8",
+                CARD_BASE,
+              )}
             >
-              <Image src="/lstm-architecture.png" alt="" fill sizes="(max-width: 1024px) 100vw, 60vw" className="pointer-events-none object-cover opacity-[0.12] dark:opacity-[0.18]" />
-              <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.10] via-background/85 to-primary/[0.06]" />
-              <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 size-64 rounded-full bg-primary/25 blur-3xl" />
+              <Image
+                src="/lstm-architecture.png"
+                alt=""
+                fill
+                sizes="(max-width: 1024px) 100vw, 60vw"
+                className="pointer-events-none object-cover opacity-[0.12] dark:opacity-[0.18]"
+              />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.10] via-background/85 to-primary/[0.06]"
+              />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -right-24 -top-24 size-64 rounded-full bg-primary/25 blur-3xl"
+              />
 
               <div className="relative flex items-start justify-between">
                 <div>
@@ -963,7 +1241,9 @@ function ModelSection() {
                     <Cpu weight="duotone" className="size-3.5" />
                     Model config
                   </span>
-                  <h3 className="mt-4 font-heading text-2xl font-semibold sm:text-3xl">quote-lstm-v1</h3>
+                  <h3 className="mt-4 font-heading text-2xl font-semibold sm:text-3xl">
+                    quote-lstm-v1
+                  </h3>
                 </div>
                 <CardIconButton />
               </div>
@@ -977,15 +1257,21 @@ function ModelSection() {
               <dl className="relative mt-8 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
                 {MODEL_CONFIG.map((row) => (
                   <div key={row.label}>
-                    <dt className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{row.label}</dt>
-                    <dd className="mt-1 font-heading text-sm font-medium">{row.value}</dd>
+                    <dt className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                      {row.label}
+                    </dt>
+                    <dd className="mt-1 font-heading text-sm font-medium">
+                      {row.value}
+                    </dd>
                   </div>
                 ))}
               </dl>
 
               <div className="relative mt-8 flex items-center justify-between">
                 <CardButton label="View tutorial" />
-                <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">TensorFlow Docs</span>
+                <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                  TensorFlow Docs
+                </span>
               </div>
             </a>
           </motion.div>
@@ -993,10 +1279,13 @@ function ModelSection() {
           <div className="flex flex-col gap-5 lg:col-span-2">
             <motion.div variants={revealSlow} className="flex-1">
               <a
-                href="https://www.tensorflow.org/tutorials/text/text_generation"
+                href="https://github.com/Sheharyar-Sarmad/Quote-Lab/blob/main/model/notebooks/Qoute_Completion.ipynb"
                 target="_blank"
                 rel="noreferrer noopener"
-                className={cn("group flex h-full flex-col rounded-3xl p-6", CARD_BASE)}
+                className={cn(
+                  "group flex h-full flex-col rounded-3xl p-6",
+                  CARD_BASE,
+                )}
               >
                 <CardGlow />
                 <div className="relative flex items-start justify-between">
@@ -1005,7 +1294,9 @@ function ModelSection() {
                   </span>
                   <CardIconButton />
                 </div>
-                <h3 className="relative mt-5 font-heading text-lg font-semibold">Training notebook</h3>
+                <h3 className="relative mt-5 font-heading text-lg font-semibold">
+                  Training notebook
+                </h3>
                 <p className="relative mt-2 text-sm leading-relaxed text-muted-foreground">
                   Data cleaning, tokenization, sequence generation, padding,
                   model definition, and training — all reproducible.
@@ -1021,7 +1312,10 @@ function ModelSection() {
                 href="https://fastapi.tiangolo.com"
                 target="_blank"
                 rel="noreferrer noopener"
-                className={cn("group flex h-full flex-col rounded-3xl p-6", CARD_BASE)}
+                className={cn(
+                  "group flex h-full flex-col rounded-3xl p-6",
+                  CARD_BASE,
+                )}
               >
                 <CardGlow />
                 <div className="relative flex items-start justify-between">
@@ -1030,7 +1324,9 @@ function ModelSection() {
                   </span>
                   <CardIconButton />
                 </div>
-                <h3 className="relative mt-5 font-heading text-lg font-semibold">FastAPI server</h3>
+                <h3 className="relative mt-5 font-heading text-lg font-semibold">
+                  FastAPI server
+                </h3>
                 <p className="relative mt-2 text-sm leading-relaxed text-muted-foreground">
                   Loads the trained model, exposes a clean JSON API, and
                   integrates Groq for full-quote completion.
@@ -1053,24 +1349,47 @@ function VoiceSection() {
       <div className="mx-auto max-w-6xl">
         <SectionHeading
           eyebrow="Voice loop"
-          title={<>It talks back, <span className={GRADIENT_TEXT}>natively</span></>}
+          title={
+            <>
+              It talks back, <span className={GRADIENT_TEXT}>natively</span>
+            </>
+          }
           subtitle="No audio bundles, no third-party TTS bills. The browser does the speaking."
         />
-        <motion.div variants={revealSlow} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-80px" }} className="mt-14 flex flex-col items-center">
+        <motion.div
+          variants={revealSlow}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-80px" }}
+          className="mt-14 flex flex-col items-center"
+        >
           <div className="relative flex items-center justify-center">
             <motion.div
               aria-hidden
               className="absolute inset-0 rounded-3xl bg-primary/25 blur-3xl"
               animate={{ scale: [1, 1.15, 1], opacity: [0.45, 0.75, 0.45] }}
-              transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
+              transition={{
+                duration: 4.5,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
             />
             <motion.div
               aria-hidden
               className="absolute inset-4 rounded-3xl border border-primary/20"
               animate={{ scale: [1, 1.08, 1], opacity: [0.6, 0, 0.6] }}
-              transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
+              transition={{
+                duration: 4.5,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
             />
-            <FramedImage src="/voice-wave.png" alt="Voice waveform illustration" size={200} className="relative" />
+            <FramedImage
+              src="/voice-wave.png"
+              alt="Voice waveform illustration"
+              size={200}
+              className="relative"
+            />
           </div>
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
@@ -1083,7 +1402,10 @@ function VoiceSection() {
               >
                 <Microphone weight="bold" className="size-4 text-primary" />
                 Web Speech API docs
-                <ArrowUpRight weight="bold" className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                <ArrowUpRight
+                  weight="bold"
+                  className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                />
               </a>
             </Magnetic>
 
@@ -1100,14 +1422,27 @@ function VoiceSection() {
 
 function TechStack() {
   return (
-    <section id="stack" className="relative scroll-mt-24 px-4 py-20 sm:px-6 md:px-10">
+    <section
+      id="stack"
+      className="relative scroll-mt-24 px-4 py-20 sm:px-6 md:px-10"
+    >
       <div className="mx-auto max-w-6xl">
         <SectionHeading
           eyebrow="Tech stack"
-          title={<>Everything is <span className={GRADIENT_TEXT}>documented</span></>}
+          title={
+            <>
+              Everything is <span className={GRADIENT_TEXT}>documented</span>
+            </>
+          }
           subtitle="Sixteen pieces, each linked to the exact docs page used while building it."
         />
-        <motion.div variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-80px" }} className="mt-14 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <motion.div
+          variants={stagger}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-80px" }}
+          className="mt-14 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+        >
           {TECH_STACK.map((tech) => (
             <motion.a
               key={tech.name}
@@ -1115,14 +1450,19 @@ function TechStack() {
               href={tech.href}
               target="_blank"
               rel="noreferrer noopener"
-              className={cn("group flex items-center justify-between gap-3 rounded-2xl px-5 py-4", CARD_BASE)}
+              className={cn(
+                "group flex items-center justify-between gap-3 rounded-2xl px-5 py-4",
+                CARD_BASE,
+              )}
             >
               <CardGlow />
               <span className="relative inline-flex items-center gap-2.5">
                 <span className="inline-flex size-7 items-center justify-center rounded-lg border border-border/60 bg-primary/10 text-primary">
                   <Code weight="duotone" className="size-3.5" />
                 </span>
-                <span className="truncate text-sm font-medium">{tech.name}</span>
+                <span className="truncate text-sm font-medium">
+                  {tech.name}
+                </span>
               </span>
               <span className="relative inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/60 text-muted-foreground backdrop-blur-xl transition-all duration-300 group-hover:border-primary/40 group-hover:bg-primary group-hover:text-primary-foreground">
                 <ArrowUpRight weight="bold" className="size-3.5" />
@@ -1137,43 +1477,81 @@ function TechStack() {
 
 function Connect() {
   return (
-    <section id="connect" className="relative scroll-mt-24 overflow-hidden px-4 py-24 sm:px-6 md:px-10">
+    <section
+      id="connect"
+      className="relative scroll-mt-24 overflow-hidden px-4 py-24 sm:px-6 md:px-10"
+    >
       <div aria-hidden className="pointer-events-none absolute inset-0">
-        <Image src="/hero-bg.png" alt="" fill sizes="100vw" className="object-cover opacity-15 dark:opacity-30" />
+        <Image
+          src="/hero-bg.png"
+          alt=""
+          fill
+          sizes="100vw"
+          className="object-cover opacity-15 dark:opacity-30"
+        />
         <div className="absolute inset-0 bg-gradient-to-b from-primary/[0.08] via-background/80 to-primary/[0.06]" />
         <div className="absolute inset-0 bg-gradient-to-b from-background via-background/80 to-background" />
       </div>
 
       <div className="relative mx-auto max-w-5xl">
-        <motion.div variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-80px" }} className="flex flex-col items-center text-center">
-          <motion.span variants={reveal} className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/40 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground backdrop-blur-xl">
+        <motion.div
+          variants={stagger}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-80px" }}
+          className="flex flex-col items-center text-center"
+        >
+          <motion.span
+            variants={reveal}
+            className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/40 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground backdrop-blur-xl"
+          >
             <Sparkle weight="fill" className="size-3.5 text-primary" />
             Built in public
           </motion.span>
 
           <h2 className="mt-6 font-heading text-3xl font-semibold tracking-tight text-balance sm:text-4xl md:text-5xl">
             <SplitTextOnScroll text="Built in public." className="block" />
-            <SplitTextOnScroll text="Follow the journey." className={cn("mt-1 block", GRADIENT_TEXT)} delay={0.2} />
+            <SplitTextOnScroll
+              text="Follow the journey."
+              className={cn("mt-1 block", GRADIENT_TEXT)}
+              delay={0.2}
+            />
           </h2>
 
-          <motion.p variants={reveal} className="mt-5 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+          <motion.p
+            variants={reveal}
+            className="mt-5 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base"
+          >
             Every model, every API, every pixel of this project is documented
             and shipped in the open. Explore the code, follow the build, or
             reach out.
           </motion.p>
         </motion.div>
 
-        <motion.div variants={staggerSlow} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-80px" }} className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <motion.div
+          variants={staggerSlow}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-80px" }}
+          className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
+        >
           {CONNECT_CARDS.map((card) => {
             const Icon = card.icon;
             return (
-              <motion.div key={card.title} variants={revealSlow} className="h-full">
+              <motion.div
+                key={card.title}
+                variants={revealSlow}
+                className="h-full"
+              >
                 <Magnetic className="h-full">
                   <a
                     href={card.href}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className={cn("group flex h-full flex-col gap-6 rounded-2xl p-6", CARD_BASE)}
+                    className={cn(
+                      "group flex h-full flex-col gap-6 rounded-2xl p-6",
+                      CARD_BASE,
+                    )}
                   >
                     <CardGlow />
                     <div className="relative flex items-start justify-between">
@@ -1183,12 +1561,18 @@ function Connect() {
                       <CardIconButton />
                     </div>
                     <div className="relative mt-auto text-left">
-                      <h3 className="font-heading text-base font-semibold">{card.title}</h3>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">{card.handle}</p>
+                      <h3 className="font-heading text-base font-semibold">
+                        {card.title}
+                      </h3>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {card.handle}
+                      </p>
                     </div>
                     <div className="relative flex items-center justify-between">
                       <CardButton label="Open" />
-                      <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">External</span>
+                      <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                        External
+                      </span>
                     </div>
                   </a>
                 </Magnetic>
@@ -1209,11 +1593,23 @@ function FinalCTA() {
         initial="hidden"
         whileInView="show"
         viewport={{ once: true, margin: "-80px" }}
-        className={cn("group relative mx-auto max-w-5xl rounded-3xl px-8 py-16 text-center sm:px-14", CARD_BASE)}
+        className={cn(
+          "group relative mx-auto max-w-5xl rounded-3xl px-8 py-16 text-center sm:px-14",
+          CARD_BASE,
+        )}
       >
-        <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 size-72 rounded-full bg-primary/25 blur-[110px]" />
-        <div aria-hidden className="pointer-events-none absolute -bottom-24 -right-16 size-72 rounded-full bg-primary/20 blur-[110px]" />
-        <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.06] via-transparent to-primary/[0.08]" />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -left-24 -top-24 size-72 rounded-full bg-primary/25 blur-[110px]"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -bottom-24 -right-16 size-72 rounded-full bg-primary/20 blur-[110px]"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.06] via-transparent to-primary/[0.08]"
+        />
 
         <div className="relative">
           <span className="inline-flex size-12 items-center justify-center rounded-2xl border border-border/60 bg-primary/10 text-primary">
@@ -1222,19 +1618,29 @@ function FinalCTA() {
 
           <h2 className="mt-6 font-heading text-3xl font-semibold tracking-tight text-balance sm:text-4xl md:text-5xl">
             <SplitTextOnScroll text="Start at zero." />{" "}
-            <SplitTextOnScroll text="Ship at hero." className={GRADIENT_TEXT} delay={0.2} />
+            <SplitTextOnScroll
+              text="Ship at hero."
+              className={GRADIENT_TEXT}
+              delay={0.2}
+            />
           </h2>
 
           <p className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-            Clone the repo, run the notebook, deploy the app. The whole
-            pipeline is yours to break and rebuild.
+            Clone the repo, run the notebook, deploy the app. The whole pipeline
+            is yours to break and rebuild.
           </p>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Magnetic>
-              <Link href="/prediction-lab" className="group inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:opacity-90">
+              <Link
+                href="/prediction-lab"
+                className="group inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:opacity-90"
+              >
                 Open Prediction Lab
-                <ArrowRight weight="bold" className="size-4 transition-transform group-hover:translate-x-0.5" />
+                <ArrowRight
+                  weight="bold"
+                  className="size-4 transition-transform group-hover:translate-x-0.5"
+                />
               </Link>
             </Magnetic>
 
@@ -1247,7 +1653,10 @@ function FinalCTA() {
               >
                 <GithubLogo weight="bold" className="size-4" />
                 Get the source
-                <ArrowUpRight weight="bold" className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                <ArrowUpRight
+                  weight="bold"
+                  className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                />
               </a>
             </Magnetic>
           </div>
@@ -1267,7 +1676,9 @@ function Footer() {
               <span className="inline-flex size-8 items-center justify-center rounded-lg border border-border/60 bg-primary/10 text-primary">
                 <Sparkle weight="fill" className="size-4" />
               </span>
-              <span className="font-heading text-base font-semibold tracking-tight">QuoteLab</span>
+              <span className="font-heading text-base font-semibold tracking-tight">
+                QuoteLab
+              </span>
             </Link>
             <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
               A full-stack AI experiment — LSTM next-word prediction in
@@ -1278,16 +1689,26 @@ function Footer() {
 
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 md:gap-12">
             <div className="flex flex-col gap-3">
-              <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Product</span>
+              <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                Product
+              </span>
               <ul className="flex flex-col gap-2">
                 {FOOTER_LINKS.product.map((link) => (
                   <li key={link.label}>
                     {link.external ? (
-                      <a href={link.href} target="_blank" rel="noreferrer noopener" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+                      <a
+                        href={link.href}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      >
                         {link.label}
                       </a>
                     ) : (
-                      <Link href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+                      <Link
+                        href={link.href}
+                        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      >
                         {link.label}
                       </Link>
                     )}
@@ -1297,11 +1718,18 @@ function Footer() {
             </div>
 
             <div className="flex flex-col gap-3">
-              <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Connect</span>
+              <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                Connect
+              </span>
               <ul className="flex flex-col gap-2">
                 {FOOTER_LINKS.connect.map((link) => (
                   <li key={link.label}>
-                    <a href={link.href} target="_blank" rel="noreferrer noopener" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    >
                       {link.label}
                     </a>
                   </li>
@@ -1310,11 +1738,18 @@ function Footer() {
             </div>
 
             <div className="flex flex-col gap-3">
-              <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Built with</span>
+              <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                Built with
+              </span>
               <ul className="flex flex-col gap-2">
                 {FOOTER_LINKS.builtWith.map((link) => (
                   <li key={link.label}>
-                    <a href={link.href} target="_blank" rel="noreferrer noopener" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    >
                       {link.label}
                     </a>
                   </li>
@@ -1327,7 +1762,12 @@ function Footer() {
         <div className="flex flex-col gap-3 border-t border-border/60 pt-6 md:flex-row md:items-center md:justify-between">
           <p className="text-xs text-muted-foreground">
             © {new Date().getFullYear()} QuoteLab · Built by{" "}
-            <a href="https://github.com/Sheharyar-Sarmad" target="_blank" rel="noreferrer noopener" className="font-medium text-foreground transition-colors hover:text-primary">
+            <a
+              href="https://github.com/Sheharyar-Sarmad"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="font-medium text-foreground transition-colors hover:text-primary"
+            >
               Sheharyar Sarmad
             </a>
           </p>
@@ -1444,16 +1884,36 @@ export default function HomePageWrapper() {
 
           <Hero />
 
-          <ScrollFade><Marquee /></ScrollFade>
-          <ScrollFade><Stats /></ScrollFade>
-          <ScrollFade><HowItWorks /></ScrollFade>
-          <ScrollFade><Features /></ScrollFade>
-          <ScrollFade><Quotes /></ScrollFade>
-          <ScrollFade><ModelSection /></ScrollFade>
-          <ScrollFade><VoiceSection /></ScrollFade>
-          <ScrollFade><TechStack /></ScrollFade>
-          <ScrollFade><Connect /></ScrollFade>
-          <ScrollFade><FinalCTA /></ScrollFade>
+          <ScrollFade>
+            <Marquee />
+          </ScrollFade>
+          <ScrollFade>
+            <Stats />
+          </ScrollFade>
+          <ScrollFade>
+            <HowItWorks />
+          </ScrollFade>
+          <ScrollFade>
+            <Features />
+          </ScrollFade>
+          <ScrollFade>
+            <Quotes />
+          </ScrollFade>
+          <ScrollFade>
+            <ModelSection />
+          </ScrollFade>
+          <ScrollFade>
+            <VoiceSection />
+          </ScrollFade>
+          <ScrollFade>
+            <TechStack />
+          </ScrollFade>
+          <ScrollFade>
+            <Connect />
+          </ScrollFade>
+          <ScrollFade>
+            <FinalCTA />
+          </ScrollFade>
 
           <Footer />
         </main>

@@ -79,24 +79,88 @@ const GROQ_API_KEY = process.env.NEXT_PUBLIC_GROQ_API_KEY ?? "";
 log("Boot", "GROQ_API_KEY =", maskKey(GROQ_API_KEY));
 log("Boot", "API_BASE =", process.env.NEXT_PUBLIC_API_BASE_URL ?? "<empty>");
 
-const FALLBACK_MODEL = "llama-3.3-70b-versatile";
-
 const SYSTEM_PROMPT = `You are QuoteLab's completion engine. Given a partial quote, finish it in the style of the original author. Rules:
 - One sentence. Maximum 25 words.
 - Match the tone, voice, and cadence of the original fragment.
 - No quotation marks around your output. No preamble. No explanation.
 - If the fragment is already complete, return it polished.`;
 
-const FOLLOWUP_SYSTEM_PROMPT = `You are QuoteLab's research assistant. The user is exploring quotes and AI completion.
-Answer follow-up questions concisely, helpfully, and in a warm, literary tone.
-Keep answers under 120 words unless the user explicitly asks for more depth.
-If the user asks about the quote's meaning, author, or context — be precise.
-Never use markdown headers or bullet lists unless asked. Speak plainly.`;
+const PROJECT_CONTEXT = `## About QuoteLab (deep project knowledge)
+
+You have full knowledge of how QuoteLab is built. Whenever the user asks about the model, its accuracy, training, preprocessing, or deployment, answer precisely using the facts below. Never invent numbers, dates, or names.
+
+### Model architecture
+- Embedding layer: 10,000 tokens × 50 dims (~500,000 params)
+- LSTM layer: 128 units (~91,648 params)
+- Dropout: 0.2 recurrent / 0.3 after
+- Dense output: 10,000 units with softmax (~1,290,000 params)
+- Total trainable params: ~1,881,648 (~7.18 MB)
+
+### Training
+- Dataset: 3,038 famous quotes (Einstein, Rowling, Austen, Monroe, Tolkien…)
+- Unique vocabulary: 8,979 words (capped at 10,000)
+- Training sequences generated: 85,271
+- Max sequence length: 50 tokens (pre-padded)
+- Optimizer: Adam
+- Loss: sparse categorical cross-entropy
+- Batch size: 128
+- Max epochs: 30, EarlyStopping patience = 3
+- Actual run: 9 epochs before early stop, best weights restored from epoch 6
+- Final training accuracy: 12.22%
+- Final validation accuracy: 10.58%
+- Test set accuracy: 11.44%
+- Training loss (final): 5.3739
+- Validation loss (final): 6.4747
+
+### Preprocessing pipeline (4 steps)
+1. Lowercase every quote
+2. Strip punctuation using str.maketrans("", "", string.punctuation)
+3. Tokenize with Keras Tokenizer(num_words=10_000, oov_token="<OOV>")
+4. pad_sequences with maxlen=50, padding="pre"
+
+### Why LSTM over a SimpleRNN
+- A SimpleRNN baseline hit only ~7.2% validation accuracy
+- Same architecture otherwise (128 units, 50-dim embedding)
+- LSTM's gates (forget/input/output) capture longer-range dependencies → 10.58%
+- The final deployment uses the LSTM variant
+
+### Training hurdles (the honest story)
+- Colab's free T4 GPU crashed twice during training
+- Each crash wasted roughly 1.5 hours of progress
+- Total ~3 hours lost
+- Fix: smaller batch size, capped vocabulary, shorter max sequence length, EarlyStopping to prevent overtraining
+
+### Inference & deployment
+- Model exported to TensorFlow Lite (.tflite) for fast CPU inference
+- Original TFLite export used SELECT_TF_OPS (Flex ops) which failed on Windows/TF 2.21 with "FlexTensorListReserve" errors
+- Fix: rebuilt the Keras model with unroll=True so the LSTM loop unrolls into pure built-in TFLite ops — no Flex delegate needed
+- Backend: FastAPI + Uvicorn, deployed on Render (https://quote-lab.onrender.com)
+- Endpoint: POST /predict — returns top-K next-word probabilities
+- Frontend: Next.js 15, Tailwind, Framer Motion, Recharts
+- LLM layer: Groq — finishes the sentence after the LSTM predicts the next word
+- Voice: Web Speech API (SpeechRecognition for input, SpeechSynthesis for output)
+- Exports: TXT + PDF research report generated client-side with jsPDF
+
+### Why an LSTM + an LLM
+The LSTM is trained on a small corpus and does well at next-word probability. It cannot finish a full sentence coherently. Groq's LLM picks up where the LSTM stops to produce a polished, in-voice completion.`;
+
+const FOLLOWUP_SYSTEM_PROMPT = `You are QuoteLab's research assistant. The user is exploring quotes and AI-powered completion.
+
+${PROJECT_CONTEXT}
+
+## Style
+- Warm, literary, precise.
+- Keep answers under 120 words unless the user asks for more depth.
+- Never use markdown headers or bullet lists unless asked.
+- If the user asks about a quote's meaning, author, or context — be accurate.
+- If the user asks about the model, training, accuracy, or pipeline — cite the exact numbers and details from the context above.
+- Never invent metrics, authors, or dates.`;
 
 type GroqModel = {
   id: string;
   owned_by?: string;
   context_window?: number;
+  created?: number;
   active?: boolean;
 };
 
@@ -128,10 +192,10 @@ const SAMPLE_PROMPTS = [
 ] as const;
 
 const FOLLOWUP_SUGGESTIONS = [
-  "Who said this and when?",
-  "Explain the deeper meaning",
-  "Give me a similar quote",
-  "Rewrite it in a modern voice",
+  "How accurate is the model?",
+  "Why an LSTM and not a SimpleRNN?",
+  "What was the hardest part of training?",
+  "Explain the preprocessing pipeline",
 ] as const;
 
 /* ============================================================
@@ -154,7 +218,7 @@ const stagger: Variants = {
 };
 
 /* ============================================================
-   Speaking Waves — animated visualizer
+   Speaking Waves
    ============================================================ */
 
 function SpeakingWaves({
@@ -174,14 +238,9 @@ function SpeakingWaves({
       {Array.from({ length: count }).map((_, i) => (
         <motion.span
           key={i}
-          className={cn(
-            "w-[3px] rounded-full bg-primary",
-            barClassName,
-          )}
+          className={cn("w-[3px] rounded-full bg-primary", barClassName)}
           initial={{ height: "30%" }}
-          animate={{
-            height: ["25%", "100%", "45%", "90%", "30%"],
-          }}
+          animate={{ height: ["25%", "100%", "45%", "90%", "30%"] }}
           transition={{
             duration: 1.1,
             repeat: Infinity,
@@ -300,28 +359,37 @@ function Banger({ trigger }: { trigger: number }) {
 }
 
 /* ============================================================
-   Groq models hook
+   Groq models hook — dynamic fetch, no whitelist
+
+   Filtering strategy:
+   - Blocklist known non-chat families (whisper, tts, guard, embed).
+   - Sort: preferred llama-3.3-70b variants first, then by context_window.
+   - Dropdown reflects whatever Groq actually returns.
    ============================================================ */
+
+const NON_CHAT_PATTERNS = [
+  "whisper",
+  "tts",
+  "guard",
+  "embed",
+  "moderation",
+] as const;
 
 function isChatModel(id: string): boolean {
   const lower = id.toLowerCase();
-  if (lower.includes("whisper")) return false;
-  if (lower.includes("tts")) return false;
-  if (lower.includes("guard")) return false;
-  if (lower.includes("embed")) return false;
-  return true;
+  return !NON_CHAT_PATTERNS.some((p) => lower.includes(p));
 }
 
-function modelRank(model: GroqModel): number {
-  const id = model.id.toLowerCase();
-  if (id.includes("llama-3.3-70b")) return 100;
-  if (id.includes("llama-3.1-70b")) return 90;
-  if (id.includes("llama-3.1-8b")) return 80;
-  if (id.includes("llama3-70b")) return 70;
-  if (id.includes("llama3-8b")) return 60;
-  if (id.includes("mixtral")) return 50;
-  if (id.includes("gemma")) return 40;
-  return 10;
+/**
+ * Product priority: prefer the llama-3.3-70b family first (either the
+ * "-versatile" alias or any other variant Groq exposes). Everything
+ * else falls back to context_window ranking.
+ */
+function modelPriority(id: string): number {
+  const lower = id.toLowerCase();
+  if (lower.includes("llama-3.3-70b-versatile")) return 100;
+  if (lower.includes("llama-3.3-70b")) return 90;
+  return 0;
 }
 
 function useGroqModels() {
@@ -331,8 +399,10 @@ function useGroqModels() {
 
   useEffect(() => {
     if (!GROQ_API_KEY) {
-      setModels([{ id: FALLBACK_MODEL, owned_by: "Meta" }]);
-      setError("Groq API key not configured — using fallback model.");
+      setModels([]);
+      setError(
+        "Groq API key not configured. Add NEXT_PUBLIC_GROQ_API_KEY to .env.local and restart the dev server.",
+      );
       setLoading(false);
       return;
     }
@@ -342,6 +412,7 @@ function useGroqModels() {
 
     (async () => {
       try {
+        log("GroqModels", "GET", GROQ_MODELS_ENDPOINT);
         const res = await fetch(GROQ_MODELS_ENDPOINT, {
           headers: {
             Authorization: `Bearer ${GROQ_API_KEY}`,
@@ -359,28 +430,39 @@ function useGroqModels() {
 
         const data: { data?: GroqModel[] } = await res.json();
         const all = data.data ?? [];
+        log("GroqModels", "returned", all.length, "models");
 
+        // Keep chat-capable models only.
+        // Sort by: (1) explicit priority match, (2) context_window desc.
         const chatModels = all
           .filter((m) => m.active !== false && isChatModel(m.id))
           .sort((a, b) => {
-            const byRank = modelRank(b) - modelRank(a);
-            if (byRank !== 0) return byRank;
+            const pa = modelPriority(a.id);
+            const pb = modelPriority(b.id);
+            if (pa !== pb) return pb - pa;
             return (b.context_window ?? 0) - (a.context_window ?? 0);
           });
 
+        log(
+          "GroqModels",
+          "usable:",
+          chatModels.map((m) => m.id),
+        );
+
         if (!cancelled) {
           if (chatModels.length === 0) {
-            setModels([{ id: FALLBACK_MODEL, owned_by: "Meta" }]);
-            setError("No chat models available — using fallback.");
+            setModels([]);
+            setError("No chat-capable models are currently available.");
           } else {
             setModels(chatModels);
+            setError(null);
           }
           setLoading(false);
         }
       } catch (err) {
         if (cancelled) return;
         if ((err as { name?: string }).name === "AbortError") return;
-        setModels([{ id: FALLBACK_MODEL, owned_by: "Meta" }]);
+        setModels([]);
         setError(
           err instanceof Error ? err.message : "Failed to load models.",
         );
@@ -538,6 +620,16 @@ function uid() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
+/**
+ * Determine whether a stream error is likely caused by the model itself
+ * (unavailable, decommissioned, bad request) rather than a network issue.
+ */
+function isModelError(msg: string): boolean {
+  return /model|not found|unavailable|decommissioned|does not exist|invalid.*model|400|404/i.test(
+    msg,
+  );
+}
+
 /* ============================================================
    Main component
    ============================================================ */
@@ -556,6 +648,11 @@ export default function PredictionLabWrapper() {
   const [selectedVoiceName, setSelectedVoiceName] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>("");
 
+  // Track models that failed at runtime this session
+  const [brokenModels, setBrokenModels] = useState<Set<string>>(
+    () => new Set(),
+  );
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [followUpInput, setFollowUpInput] = useState("");
   const [isFollowUpStreaming, setIsFollowUpStreaming] = useState(false);
@@ -573,6 +670,22 @@ export default function PredictionLabWrapper() {
     loading: modelsLoading,
     error: modelsError,
   } = useGroqModels();
+
+  // Derived list — everything Groq returned, minus anything that errored
+  const visibleModels = useMemo(
+    () => groqModels.filter((m) => !brokenModels.has(m.id)),
+    [groqModels, brokenModels],
+  );
+
+  // Mark a model as broken for the current session
+  const markModelBroken = useCallback((id: string) => {
+    setBrokenModels((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
 
   const autoSpeakRef = useRef(autoSpeak);
   const selectedVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
@@ -605,12 +718,15 @@ export default function PredictionLabWrapper() {
     stopListening: stopFollowUpListening,
   } = useSpeechToText(handleFollowUpVoice);
 
+  // Auto-select the first visible model whenever the visible list changes
+  // and the current selection is no longer valid.
   useEffect(() => {
-    if (selectedModel || groqModels.length === 0) return;
-    const preferred =
-      groqModels.find((m) => m.id === FALLBACK_MODEL) ?? groqModels[0];
-    if (preferred) setSelectedModel(preferred.id);
-  }, [groqModels, selectedModel]);
+    if (visibleModels.length === 0) return;
+    const stillValid = visibleModels.some((m) => m.id === selectedModel);
+    if (!stillValid) {
+      setSelectedModel(visibleModels[0].id);
+    }
+  }, [visibleModels, selectedModel]);
 
   useEffect(() => {
     if (selectedVoiceName || voices.length === 0) return;
@@ -684,6 +800,11 @@ export default function PredictionLabWrapper() {
     });
   }, [shakeControls]);
 
+  /* ─────────────────────────────────────────────────────────
+     Groq streaming — completion
+     On model-related failure, the caller is expected to retry
+     with a different model. We just propagate the error.
+     ───────────────────────────────────────────────────────── */
   const streamCompletion = useCallback(
     async (text: string, model: string) => {
       setIsCompleting(true);
@@ -777,8 +898,11 @@ export default function PredictionLabWrapper() {
     [],
   );
 
+  /* ─────────────────────────────────────────────────────────
+     Groq streaming — follow-up
+     ───────────────────────────────────────────────────────── */
   const streamFollowUp = useCallback(
-    async (userQuestion: string) => {
+    async (userQuestion: string, modelId: string) => {
       setIsFollowUpStreaming(true);
 
       const userMsg: ChatMessage = {
@@ -801,7 +925,7 @@ export default function PredictionLabWrapper() {
 
       try {
         if (!GROQ_API_KEY) throw new Error("Groq API key missing.");
-        if (!selectedModel) throw new Error("No model selected.");
+        if (!modelId) throw new Error("No model selected.");
 
         const history: {
           role: "system" | "user" | "assistant";
@@ -832,7 +956,7 @@ export default function PredictionLabWrapper() {
             Authorization: `Bearer ${GROQ_API_KEY}`,
           },
           body: JSON.stringify({
-            model: selectedModel,
+            model: modelId,
             messages: history,
             temperature: 0.7,
             max_tokens: 300,
@@ -917,15 +1041,18 @@ export default function PredictionLabWrapper() {
               : m,
           ),
         );
-        return "";
+        throw err;
       } finally {
         setIsFollowUpStreaming(false);
         followUpAbortRef.current = null;
       }
     },
-    [messages, prompt, completion, selectedModel, speak],
+    [messages, prompt, completion, speak],
   );
 
+  /* ─────────────────────────────────────────────────────────
+     Handle predict — LSTM then Groq with model fallback
+     ───────────────────────────────────────────────────────── */
   const handlePredict = useCallback(async () => {
     const trimmed = prompt.trim();
     if (!trimmed) {
@@ -936,8 +1063,8 @@ export default function PredictionLabWrapper() {
       setError("Give the model at least two words of context.");
       return;
     }
-    if (!selectedModel) {
-      setError("Waiting for Groq models to load. Try again in a moment.");
+    if (visibleModels.length === 0) {
+      setError("No Groq models are available. Please try again later.");
       return;
     }
 
@@ -946,6 +1073,7 @@ export default function PredictionLabWrapper() {
     setError(null);
 
     try {
+      // 1) LSTM prediction from the FastAPI backend
       const res = await fetch(`${API_BASE}/predict`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -963,15 +1091,44 @@ export default function PredictionLabWrapper() {
 
       triggerBanger();
 
-      const finished = await streamCompletion(trimmed, selectedModel).catch(
-        (err: Error) => {
-          setError(err.message);
-          return "";
-        },
-      );
+      // 2) Groq completion with runtime fallback across available models
+      const tried = new Set<string>();
+      let currentModel = selectedModel || visibleModels[0].id;
+      let finalText = "";
+      let finalError: string | null = null;
 
-      if (autoSpeak && voiceSupported && finished) {
-        speak(finished, selectedVoice);
+      while (tried.size < visibleModels.length) {
+        if (tried.has(currentModel)) break;
+        tried.add(currentModel);
+
+        try {
+          finalText = await streamCompletion(trimmed, currentModel);
+          finalError = null;
+          break;
+        } catch (err) {
+          const msg =
+            err instanceof Error ? err.message : "Something went wrong";
+          finalError = msg;
+
+          // Non-model error → stop, don't waste time on other models
+          if (!isModelError(msg)) break;
+
+          // Mark broken and try the next available model
+          log("Groq", "model failed:", currentModel, "→", msg);
+          markModelBroken(currentModel);
+
+          const next = visibleModels.find((m) => !tried.has(m.id));
+          if (!next) break;
+          log("Groq", "falling back to:", next.id);
+          currentModel = next.id;
+          setSelectedModel(next.id);
+        }
+      }
+
+      if (finalError) {
+        setError(finalError);
+      } else if (finalText && autoSpeak && voiceSupported) {
+        speak(finalText, selectedVoice);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -981,9 +1138,11 @@ export default function PredictionLabWrapper() {
     prompt,
     topK,
     selectedModel,
+    visibleModels,
     reset,
     triggerBanger,
     streamCompletion,
+    markModelBroken,
     autoSpeak,
     voiceSupported,
     speak,
@@ -994,11 +1153,49 @@ export default function PredictionLabWrapper() {
     async (question?: string) => {
       const q = (question ?? followUpInput).trim();
       if (!q || isFollowUpStreaming) return;
+      if (visibleModels.length === 0) {
+        setError("No Groq models available.");
+        return;
+      }
       setFollowUpInput("");
       stop();
-      await streamFollowUp(q);
+
+      // Try the selected model, fall back if it fails at runtime
+      const tried = new Set<string>();
+      let currentModel = selectedModel || visibleModels[0].id;
+      let lastError: string | null = null;
+
+      while (tried.size < visibleModels.length) {
+        if (tried.has(currentModel)) break;
+        tried.add(currentModel);
+
+        try {
+          await streamFollowUp(q, currentModel);
+          return;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Follow-up failed";
+          lastError = msg;
+          if (!isModelError(msg)) break;
+
+          markModelBroken(currentModel);
+          const next = visibleModels.find((m) => !tried.has(m.id));
+          if (!next) break;
+          currentModel = next.id;
+          setSelectedModel(next.id);
+        }
+      }
+
+      if (lastError) setError(lastError);
     },
-    [followUpInput, isFollowUpStreaming, streamFollowUp, stop],
+    [
+      followUpInput,
+      isFollowUpStreaming,
+      streamFollowUp,
+      stop,
+      visibleModels,
+      selectedModel,
+      markModelBroken,
+    ],
   );
 
   const handleSample = useCallback(
@@ -1054,7 +1251,7 @@ export default function PredictionLabWrapper() {
         .filter((m) => m.content.trim())
         .forEach((m) => {
           lines.push("");
-          lines.push(m.role === "user" ? "🧑  You:" : "🤖  QuoteLab:");
+          lines.push(m.role === "user" ? "  You:" : "  QuoteLab:");
           lines.push(m.content);
         });
     }
@@ -1425,16 +1622,16 @@ export default function PredictionLabWrapper() {
                           disabled={
                             isPredicting ||
                             modelsLoading ||
-                            groqModels.length === 0
+                            visibleModels.length === 0
                           }
                           className="w-full appearance-none rounded-lg border border-border/60 bg-background/60 px-3 py-2 pr-9 text-xs backdrop-blur-xl focus:border-primary/60 focus:outline-none disabled:opacity-50"
                         >
                           {modelsLoading ? (
                             <option>Fetching models…</option>
-                          ) : groqModels.length === 0 ? (
+                          ) : visibleModels.length === 0 ? (
                             <option>No models available</option>
                           ) : (
-                            groqModels.map((m) => {
+                            visibleModels.map((m) => {
                               const ctx = m.context_window
                                 ? ` · ${Math.round(
                                     m.context_window / 1000,
@@ -1554,7 +1751,9 @@ export default function PredictionLabWrapper() {
                       type="button"
                       onClick={handlePredict}
                       disabled={
-                        isPredicting || !prompt.trim() || !selectedModel
+                        isPredicting ||
+                        !prompt.trim() ||
+                        visibleModels.length === 0
                       }
                       className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-primary px-5 py-3 text-xs font-medium text-primary-foreground shadow-lg shadow-primary/30 transition-all hover:shadow-xl hover:shadow-primary/40 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6 sm:text-sm"
                     >
@@ -1626,7 +1825,7 @@ export default function PredictionLabWrapper() {
                     )}
                   </div>
 
-                  {/* Speaking waves bar — appears when TTS is active */}
+                  {/* Speaking waves bar */}
                   <AnimatePresence>
                     {speaking && (
                       <motion.div
@@ -2093,7 +2292,7 @@ export default function PredictionLabWrapper() {
                         )}
                       </AnimatePresence>
 
-                      <div className="relative mt-5 max-h-[480px] space-y-3 overflow-y-auto pr-1 sm:max-h-[520px]">
+                      <div className="relative mt-5 space-y-3 pr-1">
                         {messages.length === 0 && (
                           <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-background/40 to-transparent p-4 sm:p-5">
                             <div className="flex items-start gap-3">
@@ -2105,7 +2304,7 @@ export default function PredictionLabWrapper() {
                               </span>
                               <div className="min-w-0">
                                 <p className="text-xs font-medium text-foreground sm:text-sm">
-                                  Ask anything about this quote
+                                  Ask anything about this quote or the model
                                 </p>
                                 <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
                                   Type below, or tap the mic to speak. The
@@ -2429,7 +2628,7 @@ const FOOTER_LINKS = {
     },
     {
       label: "Source repo",
-      href: "https://github.com/Sheharyar-Sarmad/ai-zero-to-hero",
+      href: "https://github.com/Sheharyar-Sarmad/Quote-Lab",
       external: true,
     },
   ],
@@ -2523,19 +2722,19 @@ function Footer() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-border/60 pt-6 md:flex-row md:items-center md:justify-between">
-  <p className="text-xs align-middle text-center text-muted-foreground">
-    © {new Date().getFullYear()} QuoteLab · Built by{" "}
-    <a
-      href="https://github.com/Sheharyar-Sarmad"
-      target="_blank"
-      rel="noreferrer noopener"
-      className="font-medium text-foreground transition-colors hover:text-primary"
-    >
-      Sheharyar Sarmad
-    </a>
-  </p>
-</div>
+        <div className="flex flex-col items-center justify-center gap-3 border-t border-border/60 pt-6 text-center">
+          <p className="text-xs text-muted-foreground">
+            © {new Date().getFullYear()} QuoteLab · Built by{" "}
+            <a
+              href="https://github.com/Sheharyar-Sarmad"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="font-medium text-foreground transition-colors hover:text-primary"
+            >
+              Sheharyar Sarmad
+            </a>
+          </p>
+        </div>
       </div>
     </footer>
   );
