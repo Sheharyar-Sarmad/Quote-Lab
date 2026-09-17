@@ -28,14 +28,6 @@ What makes it interesting:
 
 ---
 
-## 🎬 Demo / Screenshots
-
-> 📸 Screenshots coming soon — will be added here once the UI is finalized.
-
-![Screenshot](./docs/screenshot.png)
-
----
-
 ## ✨ Features
 
 - 🔮 LSTM-based next-word prediction from a partial quote
@@ -87,39 +79,6 @@ What makes it interesting:
 │   Browser (TTS playback, chat,  │
 │   charts, PDF/TXT export)       │
 └──────────────────────────────────┘
-```
-
----
-
-## 📁 Project Structure
-
-```
-QuoteLab/
-├── ui/                         # Frontend (Next.js)
-│   ├── app/                    # App Router pages & layouts
-│   ├── components/             # UI components (chat, charts, voice controls)
-│   ├── lib/                    # Groq client, TTS/STT helpers, PDF export
-│   ├── public/                 # Static assets
-│   ├── styles/                 # Tailwind config & globals
-│   ├── package.json
-│   └── .env.local.example
-│
-├── model/                      # Backend (FastAPI + ML)
-│   ├── app/
-│   │   ├── main.py             # FastAPI entrypoint
-│   │   ├── predict.py          # /predict route logic
-│   │   └── schemas.py          # Pydantic request/response models
-│   ├── training/
-│   │   ├── train_lstm.py       # LSTM training script
-│   │   └── preprocess.py       # Tokenization & sequence generation
-│   ├── artifacts/
-│   │   └── quotelab_lstm.tflite
-│   ├── requirements.txt
-│   └── .env.example
-│
-├── docs/                       # Screenshots & documentation assets
-├── LICENSE
-└── README.md
 ```
 
 ---
@@ -220,11 +179,10 @@ Predicts the most likely next word(s) given a partial quote using the trained LS
 ## 🌐 Live Demo
 
 **Frontend:**
-> 🚧 Live URLs coming soon — will be updated after deployment.
+> **https://quote-lab-dun.vercel.app/prediction-lab**
 
 **Backend:**
-> 🚧 Live URLs coming soon — will be updated after deployment.
-
+> **https://quote-lab.onrender.com**
 ---
 
 ## 🗺️ Roadmap
@@ -252,7 +210,7 @@ Predicts the most likely next word(s) given a partial quote using the trained LS
 - GitHub: [@Sheharyar-Sarmad](https://github.com/Sheharyar-Sarmad)
 - Repo: [Quote-Lab](https://github.com/Sheharyar-Sarmad/Quote-Lab)
 - LinkedIn: <!-- TODO: add LinkedIn URL -->
-- Email: developersheharyar2010@gmail.com
+- Email: [developersheharyar2010@gmail.com](https://mail.google.com/mail/u/0/?view=cm&fs=1&to=developersheharyar2010@gmail.com&su=&body=)
 
 ---
 
@@ -266,5 +224,6 @@ This project is licensed under the **MIT License**. See [LICENSE](./LICENSE) for
 
 Built with ❤️ by **Sheharyar Sarmad**
 
-</div>#   Q u o t e - L a b  
+</div>#   Q u o t e - L a b 
+ 
  
