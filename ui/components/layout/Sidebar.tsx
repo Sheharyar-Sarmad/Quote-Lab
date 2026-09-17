@@ -249,7 +249,7 @@ function SidebarContent({
             className="relative grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-primary/5 ring-1 ring-border/60"
           >
             <Image
-              src="/logo.png"
+              src="/meta_logo.png"
               alt="QuoteLab"
               width={28}
               height={28}
