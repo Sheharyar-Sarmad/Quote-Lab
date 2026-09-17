@@ -14,7 +14,8 @@ class AppFactory:
     @staticmethod
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        ModelLoader.load()
+        # Do NOT load the model here — Render's port scanner needs
+        # the port open immediately. Model loads lazily on first request.
         yield
 
     @classmethod
