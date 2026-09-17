@@ -380,11 +380,6 @@ function isChatModel(id: string): boolean {
   return !NON_CHAT_PATTERNS.some((p) => lower.includes(p));
 }
 
-/**
- * Product priority: prefer the llama-3.3-70b family first (either the
- * "-versatile" alias or any other variant Groq exposes). Everything
- * else falls back to context_window ranking.
- */
 function modelPriority(id: string): number {
   const lower = id.toLowerCase();
   if (lower.includes("llama-3.3-70b-versatile")) return 100;
@@ -432,8 +427,6 @@ function useGroqModels() {
         const all = data.data ?? [];
         log("GroqModels", "returned", all.length, "models");
 
-        // Keep chat-capable models only.
-        // Sort by: (1) explicit priority match, (2) context_window desc.
         const chatModels = all
           .filter((m) => m.active !== false && isChatModel(m.id))
           .sort((a, b) => {
@@ -620,10 +613,6 @@ function uid() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
-/**
- * Determine whether a stream error is likely caused by the model itself
- * (unavailable, decommissioned, bad request) rather than a network issue.
- */
 function isModelError(msg: string): boolean {
   return /model|not found|unavailable|decommissioned|does not exist|invalid.*model|400|404/i.test(
     msg,
@@ -648,7 +637,6 @@ export default function PredictionLabWrapper() {
   const [selectedVoiceName, setSelectedVoiceName] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>("");
 
-  // Track models that failed at runtime this session
   const [brokenModels, setBrokenModels] = useState<Set<string>>(
     () => new Set(),
   );
@@ -671,13 +659,11 @@ export default function PredictionLabWrapper() {
     error: modelsError,
   } = useGroqModels();
 
-  // Derived list — everything Groq returned, minus anything that errored
   const visibleModels = useMemo(
     () => groqModels.filter((m) => !brokenModels.has(m.id)),
     [groqModels, brokenModels],
   );
 
-  // Mark a model as broken for the current session
   const markModelBroken = useCallback((id: string) => {
     setBrokenModels((prev) => {
       if (prev.has(id)) return prev;
@@ -718,8 +704,6 @@ export default function PredictionLabWrapper() {
     stopListening: stopFollowUpListening,
   } = useSpeechToText(handleFollowUpVoice);
 
-  // Auto-select the first visible model whenever the visible list changes
-  // and the current selection is no longer valid.
   useEffect(() => {
     if (visibleModels.length === 0) return;
     const stillValid = visibleModels.some((m) => m.id === selectedModel);
@@ -800,11 +784,6 @@ export default function PredictionLabWrapper() {
     });
   }, [shakeControls]);
 
-  /* ─────────────────────────────────────────────────────────
-     Groq streaming — completion
-     On model-related failure, the caller is expected to retry
-     with a different model. We just propagate the error.
-     ───────────────────────────────────────────────────────── */
   const streamCompletion = useCallback(
     async (text: string, model: string) => {
       setIsCompleting(true);
@@ -898,9 +877,6 @@ export default function PredictionLabWrapper() {
     [],
   );
 
-  /* ─────────────────────────────────────────────────────────
-     Groq streaming — follow-up
-     ───────────────────────────────────────────────────────── */
   const streamFollowUp = useCallback(
     async (userQuestion: string, modelId: string) => {
       setIsFollowUpStreaming(true);
@@ -1050,9 +1026,6 @@ export default function PredictionLabWrapper() {
     [messages, prompt, completion, speak],
   );
 
-  /* ─────────────────────────────────────────────────────────
-     Handle predict — LSTM then Groq with model fallback
-     ───────────────────────────────────────────────────────── */
   const handlePredict = useCallback(async () => {
     const trimmed = prompt.trim();
     if (!trimmed) {
@@ -1073,7 +1046,6 @@ export default function PredictionLabWrapper() {
     setError(null);
 
     try {
-      // 1) LSTM prediction from the FastAPI backend
       const res = await fetch(`${API_BASE}/predict`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1091,7 +1063,6 @@ export default function PredictionLabWrapper() {
 
       triggerBanger();
 
-      // 2) Groq completion with runtime fallback across available models
       const tried = new Set<string>();
       let currentModel = selectedModel || visibleModels[0].id;
       let finalText = "";
@@ -1110,10 +1081,8 @@ export default function PredictionLabWrapper() {
             err instanceof Error ? err.message : "Something went wrong";
           finalError = msg;
 
-          // Non-model error → stop, don't waste time on other models
           if (!isModelError(msg)) break;
 
-          // Mark broken and try the next available model
           log("Groq", "model failed:", currentModel, "→", msg);
           markModelBroken(currentModel);
 
@@ -1160,7 +1129,6 @@ export default function PredictionLabWrapper() {
       setFollowUpInput("");
       stop();
 
-      // Try the selected model, fall back if it fails at runtime
       const tried = new Set<string>();
       let currentModel = selectedModel || visibleModels[0].id;
       let lastError: string | null = null;
@@ -1214,10 +1182,6 @@ export default function PredictionLabWrapper() {
       /* ignore */
     }
   }, []);
-
-  /* ─────────────────────────────────────────────────────────
-     Downloads
-     ───────────────────────────────────────────────────────── */
 
   const buildReportText = useCallback(() => {
     const lines: string[] = [];
@@ -1412,9 +1376,6 @@ export default function PredictionLabWrapper() {
     doc.save(`QuoteLab_Report_${Date.now()}.pdf`);
   }, [prompt, completion, predictions, selectedModel, topK, messages]);
 
-  /* ─────────────────────────────────────────────────────────
-     Render
-     ───────────────────────────────────────────────────────── */
   const hasResults = predictions.length > 0 || completion;
 
   return (
@@ -1467,7 +1428,6 @@ export default function PredictionLabWrapper() {
             className="px-3 py-8 sm:px-6 sm:py-12 md:px-10"
           >
             <div className="mx-auto max-w-5xl">
-              {/* Hero */}
               <motion.div
                 variants={stagger}
                 initial="hidden"
@@ -1503,7 +1463,6 @@ export default function PredictionLabWrapper() {
                 </motion.p>
               </motion.div>
 
-              {/* Console */}
               <motion.div
                 variants={reveal}
                 initial="hidden"
@@ -1592,7 +1551,6 @@ export default function PredictionLabWrapper() {
                     ))}
                   </div>
 
-                  {/* Controls */}
                   <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-4">
                     <div className="flex w-full flex-col gap-1.5 sm:min-w-[220px] sm:flex-1">
                       <label
@@ -1695,7 +1653,6 @@ export default function PredictionLabWrapper() {
                     </button>
                   </div>
 
-                  {/* Voice */}
                   <div className="mt-4 flex flex-col gap-1.5">
                     <label
                       htmlFor="voice"
@@ -1745,7 +1702,6 @@ export default function PredictionLabWrapper() {
                     </div>
                   )}
 
-                  {/* Actions */}
                   <div className="mt-6 flex flex-wrap items-center gap-2 sm:gap-3">
                     <button
                       type="button"
@@ -1825,7 +1781,6 @@ export default function PredictionLabWrapper() {
                     )}
                   </div>
 
-                  {/* Speaking waves bar */}
                   <AnimatePresence>
                     {speaking && (
                       <motion.div
@@ -1882,7 +1837,6 @@ export default function PredictionLabWrapper() {
                 </div>
               </motion.div>
 
-              {/* Results */}
               <div ref={resultsRef} className="scroll-mt-24">
                 <AnimatePresence>
                   {hasResults && (
@@ -1990,8 +1944,8 @@ export default function PredictionLabWrapper() {
                                     cursor={{
                                       fill: "rgba(139,92,246,0.08)",
                                     }}
-                                    formatter={(value: number) => [
-                                      `${(value * 100).toFixed(2)}%`,
+                                    formatter={(value) => [
+                                      `${(Number(value ?? 0) * 100).toFixed(2)}%`,
                                       "Probability",
                                     ]}
                                     contentStyle={{
@@ -2021,8 +1975,8 @@ export default function PredictionLabWrapper() {
                                     animationEasing="ease-out"
                                     label={{
                                       position: "right",
-                                      formatter: (v: number) =>
-                                        `${(v * 100).toFixed(1)}%`,
+                                      formatter: (v) =>
+                                        `${(Number(v) * 100).toFixed(1)}%`,
                                       fill: "currentColor",
                                       fontSize: 11,
                                       fontWeight: 600,
@@ -2188,7 +2142,6 @@ export default function PredictionLabWrapper() {
                 </AnimatePresence>
               </div>
 
-              {/* Follow-up Chat */}
               <AnimatePresence>
                 {hasResults && (
                   <motion.div
@@ -2233,7 +2186,6 @@ export default function PredictionLabWrapper() {
                         )}
                       </div>
 
-                      {/* Compact voice bar for the follow-up card */}
                       <AnimatePresence>
                         {speaking && (
                           <motion.div
@@ -2539,7 +2491,6 @@ export default function PredictionLabWrapper() {
                 )}
               </AnimatePresence>
 
-              {/* Pipeline explainer */}
               <motion.div
                 variants={stagger}
                 initial="hidden"
