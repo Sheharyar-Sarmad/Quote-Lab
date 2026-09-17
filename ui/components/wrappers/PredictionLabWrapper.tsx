@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   AnimatePresence,
   motion,
@@ -18,12 +19,14 @@ import {
   ArrowRight,
   Brain,
   CaretDown,
+  Check,
   Copy,
   FilePdf,
   FileText,
   Flask,
   Lightning,
   List,
+  MagnifyingGlass,
   Microphone,
   PaperPlaneTilt,
   Play,
@@ -218,6 +221,352 @@ const stagger: Variants = {
 };
 
 /* ============================================================
+   PremiumSelect — custom styled dropdown (portal-rendered)
+   ============================================================ */
+
+type SelectOption = {
+  value: string;
+  label: string;
+  hint?: string;
+  keywords?: string;
+};
+
+function PremiumSelect({
+  id,
+  value,
+  onChange,
+  options,
+  placeholder = "Select…",
+  disabled = false,
+  loading = false,
+  emptyLabel = "No options",
+  loadingLabel = "Loading…",
+  searchable = false,
+  searchPlaceholder = "Search…",
+  leadingIcon,
+  maxPanelHeight = 360,
+  ariaLabel,
+  triggerClassName,
+}: {
+  id?: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: SelectOption[];
+  placeholder?: string;
+  disabled?: boolean;
+  loading?: boolean;
+  emptyLabel?: string;
+  loadingLabel?: string;
+  searchable?: boolean;
+  searchPlaceholder?: string;
+  leadingIcon?: React.ReactNode;
+  maxPanelHeight?: number;
+  ariaLabel?: string;
+  triggerClassName?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [coords, setCoords] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => setMounted(true), []);
+
+  const selected = options.find((o) => o.value === value);
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return options;
+    const q = query.trim().toLowerCase();
+    return options.filter((o) => {
+      const hay = `${o.label} ${o.hint ?? ""} ${
+        o.keywords ?? ""
+      }`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [options, query]);
+
+  const updateCoords = useCallback(() => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const panelWidth = Math.max(rect.width, 240);
+    const left = Math.min(
+      Math.max(8, rect.left),
+      window.innerWidth - panelWidth - 8,
+    );
+    setCoords({
+      top: rect.bottom + 8,
+      left,
+      width: panelWidth,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    updateCoords();
+    window.addEventListener("resize", updateCoords);
+    window.addEventListener("scroll", updateCoords, true);
+    return () => {
+      window.removeEventListener("resize", updateCoords);
+      window.removeEventListener("scroll", updateCoords, true);
+    };
+  }, [open, updateCoords]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (triggerRef.current?.contains(t)) return;
+      if (panelRef.current?.contains(t)) return;
+      setOpen(false);
+      setQuery("");
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  useEffect(() => {
+    if (open) {
+      const idx = filtered.findIndex((o) => o.value === value);
+      setActiveIndex(idx >= 0 ? idx : 0);
+      if (searchable) {
+        window.setTimeout(() => searchRef.current?.focus(), 50);
+      }
+    } else {
+      setQuery("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  useEffect(() => {
+    if (activeIndex >= filtered.length) {
+      setActiveIndex(Math.max(0, filtered.length - 1));
+    }
+  }, [filtered.length, activeIndex]);
+
+  const commit = useCallback(
+    (v: string) => {
+      onChange(v);
+      setOpen(false);
+      setQuery("");
+    },
+    [onChange],
+  );
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled || loading) return;
+    if (!open) {
+      if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
+        e.preventDefault();
+        setOpen(true);
+      }
+      return;
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+      setQuery("");
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => Math.min(filtered.length - 1, i + 1));
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => Math.max(0, i - 1));
+      return;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const opt = filtered[activeIndex];
+      if (opt) commit(opt.value);
+      return;
+    }
+    if (e.key === "Home") {
+      e.preventDefault();
+      setActiveIndex(0);
+      return;
+    }
+    if (e.key === "End") {
+      e.preventDefault();
+      setActiveIndex(filtered.length - 1);
+    }
+  };
+
+  useEffect(() => {
+    if (!open || !listRef.current) return;
+    const el = listRef.current.querySelector<HTMLElement>(
+      `[data-idx="${activeIndex}"]`,
+    );
+    el?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, open]);
+
+  const displayLabel = loading
+    ? loadingLabel
+    : options.length === 0
+      ? emptyLabel
+      : selected?.label ?? placeholder;
+
+  const panel = open && coords ? (
+    <motion.div
+      ref={panelRef}
+      initial={{ opacity: 0, y: -6, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+      transition={{ duration: 0.15, ease: EASE }}
+      role="listbox"
+      style={{
+        position: "fixed",
+        top: coords.top,
+        left: coords.left,
+        width: coords.width,
+        zIndex: 2147483000,
+        maxHeight: Math.min(
+          maxPanelHeight + (searchable ? 56 : 0) + 16,
+          window.innerHeight - coords.top - 16,
+        ),
+      }}
+      className="overflow-hidden rounded-2xl border border-primary/30 bg-[hsl(var(--background))] shadow-2xl shadow-primary/20 ring-1 ring-black/5 backdrop-blur-2xl"
+    >
+      {searchable && (
+        <div className="border-b border-border/60 px-2.5 py-2.5">
+          <div className="relative">
+            <MagnifyingGlass
+              weight="bold"
+              className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+            />
+            <input
+              ref={searchRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={searchPlaceholder}
+              onKeyDown={onKeyDown}
+              className="w-full rounded-lg border border-border/60 bg-background/70 py-2 pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground/60 focus:border-primary/60 focus:outline-none"
+            />
+          </div>
+        </div>
+      )}
+
+      <div
+        ref={listRef}
+        className="overflow-y-auto py-1.5"
+        style={{ maxHeight: maxPanelHeight }}
+      >
+        {loading ? (
+          <div className="px-4 py-4 text-xs text-muted-foreground">
+            {loadingLabel}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="px-4 py-4 text-xs text-muted-foreground">
+            {emptyLabel}
+          </div>
+        ) : (
+          filtered.map((opt, idx) => {
+            const isSelected = opt.value === value;
+            const isActive = idx === activeIndex;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                data-idx={idx}
+                role="option"
+                aria-selected={isSelected}
+                onMouseEnter={() => setActiveIndex(idx)}
+                onClick={() => commit(opt.value)}
+                className={cn(
+                  "flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-xs transition-colors",
+                  isActive && "bg-primary/15",
+                  isSelected && "text-primary",
+                )}
+              >
+                <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+                  {opt.label}
+                </span>
+                {opt.hint && (
+                  <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    {opt.hint}
+                  </span>
+                )}
+                {isSelected && (
+                  <Check
+                    weight="bold"
+                    className="size-3.5 shrink-0 text-primary"
+                  />
+                )}
+              </button>
+            );
+          })
+        )}
+      </div>
+    </motion.div>
+  ) : null;
+
+  return (
+    <div className="relative w-full" onKeyDown={onKeyDown}>
+      <button
+        ref={triggerRef}
+        type="button"
+        id={id}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={ariaLabel}
+        disabled={disabled}
+        onClick={() => {
+          if (disabled) return;
+          if (!open) updateCoords();
+          setOpen((o) => !o);
+        }}
+        className={cn(
+          "group flex w-full items-center gap-2 rounded-xl border px-3.5 py-3 text-left text-xs font-medium backdrop-blur-xl transition-all",
+          "border-border/60 bg-background/60 hover:border-primary/40",
+          open && "border-primary/60 bg-background/80 ring-2 ring-primary/20",
+          disabled && "cursor-not-allowed opacity-50",
+          triggerClassName,
+        )}
+      >
+        {leadingIcon && (
+          <span className="inline-flex shrink-0 items-center text-primary">
+            {leadingIcon}
+          </span>
+        )}
+        <span className="min-w-0 flex-1 truncate text-foreground">
+          {displayLabel}
+        </span>
+        {selected?.hint && !loading && options.length > 0 && (
+          <span className="hidden shrink-0 truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground sm:inline">
+            {selected.hint}
+          </span>
+        )}
+        <CaretDown
+          weight="bold"
+          className={cn(
+            "size-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
+            open && "rotate-180 text-primary",
+          )}
+        />
+      </button>
+
+      {mounted &&
+        createPortal(
+          <AnimatePresence>{panel}</AnimatePresence>,
+          document.body,
+        )}
+    </div>
+  );
+}
+
+/* ============================================================
    Speaking Waves
    ============================================================ */
 
@@ -359,12 +708,7 @@ function Banger({ trigger }: { trigger: number }) {
 }
 
 /* ============================================================
-   Groq models hook — dynamic fetch, no whitelist
-
-   Filtering strategy:
-   - Blocklist known non-chat families (whisper, tts, guard, embed).
-   - Sort: preferred llama-3.3-70b variants first, then by context_window.
-   - Dropdown reflects whatever Groq actually returns.
+   Groq models hook
    ============================================================ */
 
 const NON_CHAT_PATTERNS = [
@@ -481,21 +825,41 @@ function useSpeechVoices() {
   const [supported, setSupported] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    if (typeof window === "undefined" || !window.speechSynthesis) {
+      log("Voice", "speechSynthesis NOT supported");
+      return;
+    }
     setSupported(true);
+    log("Voice", "speechSynthesis supported — loading voices");
+
+    let cancelled = false;
 
     const load = () => {
+      if (cancelled) return;
       const list = window.speechSynthesis.getVoices();
-      if (list.length > 0) setVoices(list);
+      if (list.length > 0) {
+        setVoices((prev) =>
+          prev.length === list.length &&
+          prev.every((v, i) => v.name === list[i]?.name)
+            ? prev
+            : list,
+        );
+      }
     };
 
-    load();
+    const timers = [0, 100, 250, 500, 1000, 2000, 3500].map((ms) =>
+      window.setTimeout(load, ms),
+    );
+
     window.speechSynthesis.addEventListener("voiceschanged", load);
-    const t = window.setTimeout(load, 300);
+    const onVis = () => load();
+    document.addEventListener("visibilitychange", onVis);
 
     return () => {
+      cancelled = true;
+      timers.forEach((t) => window.clearTimeout(t));
       window.speechSynthesis.removeEventListener("voiceschanged", load);
-      window.clearTimeout(t);
+      document.removeEventListener("visibilitychange", onVis);
     };
   }, []);
 
@@ -506,49 +870,187 @@ function useSpeak() {
   const [speaking, setSpeaking] = useState(false);
   const [lastText, setLastText] = useState<string>("");
   const lastVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const resumeTimerRef = useRef<number | null>(null);
 
-  const speak = useCallback(
-    (text: string, voice?: SpeechSynthesisVoice | null) => {
-      if (typeof window === "undefined" || !window.speechSynthesis) return;
-      if (!text.trim()) return;
-
-      window.speechSynthesis.cancel();
-
-      lastVoiceRef.current = voice ?? null;
-      setLastText(text);
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      if (voice) utterance.voice = voice;
-      utterance.rate = 0.95;
-      utterance.pitch = 1;
-      utterance.volume = 1;
-      utterance.onstart = () => setSpeaking(true);
-      utterance.onend = () => setSpeaking(false);
-      utterance.onerror = () => setSpeaking(false);
-
-      window.speechSynthesis.speak(utterance);
-    },
-    [],
-  );
+  const clearResumeTimer = useCallback(() => {
+    if (resumeTimerRef.current !== null) {
+      window.clearInterval(resumeTimerRef.current);
+      resumeTimerRef.current = null;
+    }
+  }, []);
 
   const stop = useCallback(() => {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
+    log("Voice", "stop() called");
+    clearResumeTimer();
+    try {
+      window.speechSynthesis.cancel();
+    } catch (err) {
+      log("Voice", "cancel() threw:", err);
+    }
+    utteranceRef.current = null;
     setSpeaking(false);
-  }, []);
+  }, [clearResumeTimer]);
+
+  const speak = useCallback(
+    (text: string, voice?: SpeechSynthesisVoice | null) => {
+      log("Voice", "speak() invoked — text length:", text.length);
+
+      if (typeof window === "undefined" || !window.speechSynthesis) {
+        log("Voice", "ABORT — speechSynthesis unsupported.");
+        return;
+      }
+      const clean = text.trim();
+      if (!clean) {
+        log("Voice", "ABORT — empty text.");
+        return;
+      }
+
+      clearResumeTimer();
+      try {
+        window.speechSynthesis.cancel();
+      } catch (err) {
+        log("Voice", "cancel() threw:", err);
+      }
+
+      const allVoices = window.speechSynthesis.getVoices();
+      log("Voice", "getVoices() at speak time:", allVoices.length);
+
+      let resolvedVoice: SpeechSynthesisVoice | null = voice ?? null;
+      if (resolvedVoice) {
+        log("Voice", "using explicit voice:", resolvedVoice.name);
+      }
+      if (!resolvedVoice && lastVoiceRef.current) {
+        const stillExists = allVoices.some(
+          (v) => v.name === lastVoiceRef.current?.name,
+        );
+        if (stillExists) {
+          resolvedVoice = lastVoiceRef.current;
+          log("Voice", "reusing lastVoice:", resolvedVoice.name);
+        }
+      }
+      if (!resolvedVoice && allVoices.length > 0) {
+        resolvedVoice =
+          allVoices.find((v) => v.default) ??
+          allVoices.find((v) => v.lang.toLowerCase().startsWith("en")) ??
+          allVoices[0];
+        log("Voice", "fallback voice chosen:", resolvedVoice?.name);
+      }
+
+      lastVoiceRef.current = resolvedVoice;
+      setLastText(clean);
+
+      window.setTimeout(() => {
+        const utterance = new SpeechSynthesisUtterance(clean);
+        if (resolvedVoice) {
+          utterance.voice = resolvedVoice;
+          utterance.lang = resolvedVoice.lang || "en-US";
+        }
+        utterance.rate = 0.95;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+
+        utterance.onstart = () => {
+          log("Voice", "▶ utterance started");
+          setSpeaking(true);
+          clearResumeTimer();
+          resumeTimerRef.current = window.setInterval(() => {
+            const syn = window.speechSynthesis;
+            if (!syn.speaking) {
+              clearResumeTimer();
+              return;
+            }
+            if (syn.paused) {
+              log("Voice", "detected paused — calling resume()");
+              try {
+                syn.resume();
+              } catch (err) {
+                log("Voice", "resume() threw:", err);
+              }
+            }
+          }, 5000);
+        };
+
+        utterance.onend = () => {
+          log("Voice", "■ utterance ended");
+          clearResumeTimer();
+          utteranceRef.current = null;
+          setSpeaking(false);
+        };
+
+        utterance.onerror = (event) => {
+          const reason = (event as SpeechSynthesisErrorEvent).error;
+          log("Voice", "✖ utterance error:", reason);
+          if (reason !== "interrupted" && reason !== "canceled") {
+            // eslint-disable-next-line no-console
+            console.warn("[Voice] utterance error:", reason);
+          }
+          clearResumeTimer();
+          utteranceRef.current = null;
+          setSpeaking(false);
+        };
+
+        utteranceRef.current = utterance;
+
+        try {
+          log("Voice", "calling speechSynthesis.speak()");
+          window.speechSynthesis.speak(utterance);
+        } catch (err) {
+          log("Voice", "speak() threw:", err);
+          setSpeaking(false);
+        }
+      }, 60);
+    },
+    [clearResumeTimer],
+  );
 
   const replay = useCallback(() => {
     if (!lastText) return;
+    log("Voice", "replay()");
     speak(lastText, lastVoiceRef.current);
   }, [lastText, speak]);
+
+  useEffect(() => {
+    return () => {
+      clearResumeTimer();
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        try {
+          window.speechSynthesis.cancel();
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+  }, [clearResumeTimer]);
 
   return { speak, stop, replay, speaking, lastText };
 }
 
+/* ------------------------------------------------------------
+   Speech-to-Text — bulletproof, auto-restarting
+   Fixes the Chrome `continuous=false` early-abort + no-speech loop
+   ------------------------------------------------------------ */
+
+const STT_MAX_RETRIES = 8;
+
 function useSpeechToText(onResult: (text: string) => void) {
   const [isListening, setIsListening] = useState(false);
   const [supported, setSupported] = useState(false);
+  const [sttError, setSttError] = useState<string | null>(null);
+
   const recognitionRef = useRef<any>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const onResultRef = useRef(onResult);
+
+  // User *intends* to be listening right now (separate from session state)
+  const intentRef = useRef(false);
+  const retriesRef = useRef(0);
+  const restartingRef = useRef(false);
+
+  useEffect(() => {
+    onResultRef.current = onResult;
+  }, [onResult]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -556,9 +1058,37 @@ function useSpeechToText(onResult: (text: string) => void) {
       (window as any).SpeechRecognition ||
       (window as any).webkitSpeechRecognition;
     setSupported(Boolean(SR));
+    log("Voice", "SpeechRecognition supported:", Boolean(SR));
+
+    return () => {
+      intentRef.current = false;
+      try {
+        recognitionRef.current?.abort?.();
+      } catch {
+        /* ignore */
+      }
+      try {
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+      } catch {
+        /* ignore */
+      }
+    };
   }, []);
 
-  const startListening = useCallback(() => {
+  const stopListening = useCallback(() => {
+    log("Voice", "stopListening() — user cancelled");
+    intentRef.current = false;
+    retriesRef.current = 0;
+    restartingRef.current = false;
+    try {
+      recognitionRef.current?.stop?.();
+    } catch {
+      /* ignore */
+    }
+    setIsListening(false);
+  }, []);
+
+  const startListening = useCallback(async () => {
     if (typeof window === "undefined") return;
     const SR =
       (window as any).SpeechRecognition ||
@@ -570,39 +1100,174 @@ function useSpeechToText(onResult: (text: string) => void) {
       return;
     }
 
+    // If already listening, treat as stop (toggle)
+    if (intentRef.current) {
+      stopListening();
+      return;
+    }
+
+    setSttError(null);
+    intentRef.current = true;
+    retriesRef.current = 0;
+    restartingRef.current = false;
+
+    // 1. Prime the microphone — this is THE key step for Chrome
     try {
-      recognitionRef.current?.stop?.();
+      const tracksAlive =
+        streamRef.current &&
+        streamRef.current
+          .getAudioTracks()
+          .some((t) => t.readyState === "live");
+      if (!tracksAlive) {
+        log("Voice", "requesting mic permission via getUserMedia…");
+        streamRef.current = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+        log("Voice", "mic permission granted");
+      } else {
+        log("Voice", "reusing live mic stream");
+      }
+    } catch (err) {
+      log("Voice", "getUserMedia failed:", err);
+      setSttError(
+        "Microphone access denied — allow mic access in your browser and try again.",
+      );
+      intentRef.current = false;
+      return;
+    }
+
+    // 2. Tear down any prior recognition
+    try {
+      recognitionRef.current?.abort?.();
     } catch {
       /* ignore */
     }
+    await new Promise((r) => window.setTimeout(r, 150));
 
-    const recognition = new SR();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = "en-US";
+    // 3. Build the recognition session
+    const rec = new SR();
+    rec.continuous = true;          // ← keeps session alive during pauses
+    rec.interimResults = true;      // ← surfaces text as you speak
+    rec.lang = "en-US";
+    rec.maxAlternatives = 1;
 
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => setIsListening(false);
-    recognition.onresult = (event: any) => {
-      const transcript = event.results?.[0]?.[0]?.transcript ?? "";
-      if (transcript) onResult(transcript);
+    const scheduleRestart = () => {
+      if (restartingRef.current) return;
+      if (!intentRef.current) return;
+
+      if (retriesRef.current >= STT_MAX_RETRIES) {
+        log("Voice", "max retries reached — giving up");
+        setSttError("Didn't catch that — tap the mic and try again.");
+        intentRef.current = false;
+        setIsListening(false);
+        return;
+      }
+
+      restartingRef.current = true;
+      retriesRef.current++;
+      log("Voice", `silent restart #${retriesRef.current}`);
+      window.setTimeout(() => {
+        restartingRef.current = false;
+        if (!intentRef.current) return;
+        try {
+          rec.start();
+        } catch (err) {
+          log("Voice", "restart start() threw:", err);
+          // If start() fails, recreate the whole recognition object
+          try {
+            startListening();
+          } catch {
+            /* ignore */
+          }
+        }
+      }, 120);
     };
 
-    recognitionRef.current = recognition;
-    recognition.start();
-  }, [onResult]);
+    rec.onstart = () => {
+      log("Voice", "STT started — speak now");
+      setIsListening(true);
+      setSttError(null);
+    };
 
-  const stopListening = useCallback(() => {
+    rec.onend = () => {
+      log("Voice", "STT ended");
+      // With continuous=true, onend only fires on error or user-stop.
+      // If the user still intends to listen, restart silently.
+      if (intentRef.current) {
+        scheduleRestart();
+      } else {
+        setIsListening(false);
+      }
+    };
+
+    rec.onerror = (event: any) => {
+      const reason = event?.error;
+      log("Voice", "STT error:", reason);
+
+      // Recoverable: silent auto-restart
+      if (reason === "no-speech" || reason === "aborted") {
+        if (intentRef.current) {
+          scheduleRestart();
+        }
+        return;
+      }
+
+      // Terminal errors
+      if (reason === "not-allowed" || reason === "service-not-allowed") {
+        setSttError("Microphone permission denied.");
+      } else if (reason === "audio-capture") {
+        setSttError("No microphone detected.");
+      } else if (reason === "network") {
+        setSttError("Network error during recognition.");
+      } else {
+        setSttError(`Recognition error: ${reason}`);
+      }
+      intentRef.current = false;
+      setIsListening(false);
+    };
+
+    rec.onresult = (event: any) => {
+      let interim = "";
+      let final = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) final += t;
+        else interim += t;
+      }
+      const combined = (final || interim).trim();
+      log("Voice", "STT result:", combined, "isFinal:", Boolean(final));
+
+      if (final.trim()) {
+        // Success — reset the retry counter so long dictations keep working
+        retriesRef.current = 0;
+        onResultRef.current(final.trim());
+      } else if (interim.trim()) {
+        onResultRef.current(interim.trim());
+      }
+    };
+
+    recognitionRef.current = rec;
     try {
-      recognitionRef.current?.stop?.();
-    } catch {
-      /* ignore */
+      rec.start();
+    } catch (err) {
+      log("Voice", "recognition.start() threw:", err);
+      setSttError("Could not start recognition — try again.");
+      intentRef.current = false;
+      setIsListening(false);
     }
-    setIsListening(false);
-  }, []);
+  }, [stopListening]);
 
-  return { isListening, startListening, stopListening, supported };
+  return {
+    isListening,
+    startListening,
+    stopListening,
+    supported,
+    error: sttError,
+  };
 }
 
 /* ============================================================
@@ -696,6 +1361,7 @@ export default function PredictionLabWrapper() {
     startListening: startPromptListening,
     stopListening: stopPromptListening,
     supported: sttSupported,
+    error: promptSttError,
   } = useSpeechToText(handlePromptVoice);
 
   const {
@@ -718,7 +1384,10 @@ export default function PredictionLabWrapper() {
       voices.find((v) => v.lang.startsWith("en") && v.default) ??
       voices.find((v) => v.lang.startsWith("en")) ??
       voices[0];
-    if (preferred) setSelectedVoiceName(preferred.name);
+    if (preferred) {
+      log("Voice", "auto-selected voice:", preferred.name);
+      setSelectedVoiceName(preferred.name);
+    }
   }, [voices, selectedVoiceName]);
 
   const selectedVoice = useMemo(() => {
@@ -728,6 +1397,7 @@ export default function PredictionLabWrapper() {
 
   useEffect(() => {
     selectedVoiceRef.current = selectedVoice;
+    if (selectedVoice) log("Voice", "selectedVoice set:", selectedVoice.name);
   }, [selectedVoice]);
 
   useEffect(() => {
@@ -1378,6 +2048,39 @@ export default function PredictionLabWrapper() {
 
   const hasResults = predictions.length > 0 || completion;
 
+  const modelOptions = useMemo<SelectOption[]>(
+    () =>
+      visibleModels.map((m) => ({
+        value: m.id,
+        label: m.id,
+        hint: m.context_window
+          ? `${Math.round(m.context_window / 1000)}K CTX`
+          : undefined,
+        keywords: m.owned_by,
+      })),
+    [visibleModels],
+  );
+
+  const topKOptions = useMemo<SelectOption[]>(
+    () =>
+      [1, 3, 5, 7, 10].map((n) => ({
+        value: String(n),
+        label: `Top ${n}`,
+      })),
+    [],
+  );
+
+  const voiceOptions = useMemo<SelectOption[]>(
+    () =>
+      voices.map((v) => ({
+        value: v.name,
+        label: v.name,
+        hint: v.lang,
+        keywords: v.default ? "default" : "",
+      })),
+    [voices],
+  );
+
   return (
     <div className="relative min-h-screen scroll-smooth text-foreground">
       <MouseTorch />
@@ -1537,6 +2240,13 @@ export default function PredictionLabWrapper() {
                     </div>
                   </div>
 
+                  {promptSttError && (
+                    <div className="mt-2 flex items-center gap-1.5 text-[11px] text-destructive">
+                      <Warning weight="duotone" className="size-3.5" />
+                      {promptSttError}
+                    </div>
+                  )}
+
                   <div className="mt-4 flex flex-wrap gap-2">
                     {SAMPLE_PROMPTS.map((s) => (
                       <button
@@ -1551,12 +2261,9 @@ export default function PredictionLabWrapper() {
                     ))}
                   </div>
 
-                  <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-4">
-                    <div className="flex w-full flex-col gap-1.5 sm:min-w-[220px] sm:flex-1">
-                      <label
-                        htmlFor="model"
-                        className="flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground"
-                      >
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_150px_auto] lg:items-end">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                         <span className="flex items-center gap-1.5">
                           <Lightning
                             weight="fill"
@@ -1570,67 +2277,42 @@ export default function PredictionLabWrapper() {
                           </span>
                         )}
                       </label>
-                      <div className="relative">
-                        <select
-                          id="model"
-                          value={selectedModel}
-                          onChange={(e) =>
-                            setSelectedModel(e.target.value)
-                          }
-                          disabled={
-                            isPredicting ||
-                            modelsLoading ||
-                            visibleModels.length === 0
-                          }
-                          className="w-full appearance-none rounded-lg border border-border/60 bg-background/60 px-3 py-2 pr-9 text-xs backdrop-blur-xl focus:border-primary/60 focus:outline-none disabled:opacity-50"
-                        >
-                          {modelsLoading ? (
-                            <option>Fetching models…</option>
-                          ) : visibleModels.length === 0 ? (
-                            <option>No models available</option>
-                          ) : (
-                            visibleModels.map((m) => {
-                              const ctx = m.context_window
-                                ? ` · ${Math.round(
-                                    m.context_window / 1000,
-                                  )}K ctx`
-                                : "";
-                              return (
-                                <option key={m.id} value={m.id}>
-                                  {m.id}
-                                  {ctx}
-                                </option>
-                              );
-                            })
-                          )}
-                        </select>
-                        <CaretDown
-                          weight="bold"
-                          className="pointer-events-none absolute right-3 top-1/2 size-3 -translate-y-1/2 text-muted-foreground"
-                        />
-                      </div>
+                      <PremiumSelect
+                        id="model"
+                        value={selectedModel}
+                        onChange={setSelectedModel}
+                        options={modelOptions}
+                        loading={modelsLoading}
+                        loadingLabel="Fetching models…"
+                        emptyLabel="No models available"
+                        disabled={
+                          isPredicting ||
+                          modelsLoading ||
+                          visibleModels.length === 0
+                        }
+                        searchable
+                        searchPlaceholder="Search models…"
+                        leadingIcon={
+                          <Lightning weight="fill" className="size-3.5" />
+                        }
+                        maxPanelHeight={380}
+                        ariaLabel="Select Groq model"
+                      />
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <label
-                        htmlFor="topk"
-                        className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground"
-                      >
+                      <label className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                         Suggestions
                       </label>
-                      <select
+                      <PremiumSelect
                         id="topk"
-                        value={topK}
-                        onChange={(e) => setTopK(Number(e.target.value))}
+                        value={String(topK)}
+                        onChange={(v) => setTopK(Number(v))}
+                        options={topKOptions}
                         disabled={isPredicting}
-                        className="rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-xs backdrop-blur-xl focus:border-primary/60 focus:outline-none"
-                      >
-                        {[1, 3, 5, 7, 10].map((n) => (
-                          <option key={n} value={n}>
-                            Top {n}
-                          </option>
-                        ))}
-                      </select>
+                        maxPanelHeight={300}
+                        ariaLabel="Select top-K suggestions"
+                      />
                     </div>
 
                     <button
@@ -1638,7 +2320,7 @@ export default function PredictionLabWrapper() {
                       onClick={() => setAutoSpeak((v) => !v)}
                       aria-pressed={autoSpeak}
                       className={cn(
-                        "inline-flex h-9 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
+                        "inline-flex h-[46px] items-center justify-center gap-2 rounded-xl border px-4 text-xs font-medium transition-colors",
                         autoSpeak
                           ? "border-primary/40 bg-primary/10 text-foreground shadow-[0_0_16px_-6px_var(--primary)]"
                           : "border-border/60 bg-background/60 text-muted-foreground hover:text-foreground",
@@ -1654,10 +2336,7 @@ export default function PredictionLabWrapper() {
                   </div>
 
                   <div className="mt-4 flex flex-col gap-1.5">
-                    <label
-                      htmlFor="voice"
-                      className="flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground"
-                    >
+                    <label className="flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                       <span>Voice</span>
                       <span className="normal-case tracking-normal text-muted-foreground/60">
                         {voiceSupported
@@ -1667,31 +2346,51 @@ export default function PredictionLabWrapper() {
                           : "not supported"}
                       </span>
                     </label>
-                    <div className="relative">
-                      <select
-                        id="voice"
-                        value={selectedVoiceName}
-                        onChange={(e) =>
-                          setSelectedVoiceName(e.target.value)
-                        }
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <PremiumSelect
+                          id="voice"
+                          value={selectedVoiceName}
+                          onChange={setSelectedVoiceName}
+                          options={voiceOptions}
+                          loading={voices.length === 0}
+                          loadingLabel="Loading voices…"
+                          emptyLabel={
+                            voiceSupported
+                              ? "No voices available"
+                              : "Not supported"
+                          }
+                          disabled={!voiceSupported || voices.length === 0}
+                          searchable
+                          searchPlaceholder="Search voices by name or language…"
+                          maxPanelHeight={400}
+                          ariaLabel="Select speech synthesis voice"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          log(
+                            "Voice",
+                            "Test button clicked — voiceSupported:",
+                            voiceSupported,
+                            "selectedVoice:",
+                            selectedVoice?.name,
+                          );
+                          if (!voiceSupported) return;
+                          speak(
+                            "This is the selected voice. It is now working.",
+                            selectedVoice,
+                          );
+                        }}
                         disabled={!voiceSupported || voices.length === 0}
-                        className="w-full appearance-none rounded-lg border border-border/60 bg-background/60 px-3 py-2 pr-9 text-xs backdrop-blur-xl focus:border-primary/60 focus:outline-none disabled:opacity-50"
+                        className="inline-flex h-[46px] shrink-0 items-center gap-1.5 rounded-xl border border-border/60 bg-background/60 px-3.5 text-xs font-medium text-muted-foreground backdrop-blur-xl transition-colors hover:border-primary/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                        title="Hear a sample in this voice"
                       >
-                        {voices.length === 0 ? (
-                          <option>Loading voices…</option>
-                        ) : (
-                          voices.map((v) => (
-                            <option key={v.name} value={v.name}>
-                              {v.name} ({v.lang})
-                              {v.default ? " — default" : ""}
-                            </option>
-                          ))
-                        )}
-                      </select>
-                      <CaretDown
-                        weight="bold"
-                        className="pointer-events-none absolute right-3 top-1/2 size-3 -translate-y-1/2 text-muted-foreground"
-                      />
+                        <SpeakerHigh weight="fill" className="size-3.5" />
+                        Test
+                      </button>
                     </div>
                   </div>
 
