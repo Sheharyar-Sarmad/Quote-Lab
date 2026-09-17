@@ -209,7 +209,7 @@ Predicts the most likely next word(s) given a partial quote using the trained LS
 
 - GitHub: [@Sheharyar-Sarmad](https://github.com/Sheharyar-Sarmad)
 - Repo: [Quote-Lab](https://github.com/Sheharyar-Sarmad/Quote-Lab)
-- LinkedIn: <!-- TODO: add LinkedIn URL -->
+- LinkedIn: [Post For The Functionality Of App](https://www.linkedin.com/feed/update/urn:li:ugcPost:7506221918711132160/)
 - Email: [developersheharyar2010@gmail.com](https://mail.google.com/mail/u/0/?view=cm&fs=1&to=developersheharyar2010@gmail.com&su=&body=)
 
 ---
