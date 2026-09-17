@@ -31,4 +31,4 @@ pnpm dev
 
 / — landing
 /prediction-lab — main app
-/colophon — build notes#
+/colophon — build notes
