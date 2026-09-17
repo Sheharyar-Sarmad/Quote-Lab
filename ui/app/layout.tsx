@@ -23,23 +23,87 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "QuoteLab",
+  metadataBase: new URL("https://quote-lab.vercel.app"),
+
+  title: {
+    default: "QuoteLab",
+    template: "%s · QuoteLab",
+  },
   description:
-    "Next-word prediction powered by an LSTM trained on famous quotes, with Groq follow-ups and voice interaction.",
+    "Complete any quote, powered by AI. An LSTM predicts the next word, Groq finishes the thought, and the browser reads it aloud.",
+
   keywords: [
+    "QuoteLab",
+    "quote completion",
+    "next word prediction",
     "LSTM",
-    "Next Word Prediction",
-    "Quote Completion",
-    "Groq",
+    "RNN",
+    "TensorFlow",
+    "Keras",
+    "TFLite",
     "FastAPI",
     "Next.js",
+    "Groq",
+    "LLM",
+    "AI",
+    "machine learning",
+    "deep learning",
+    "NLP",
+    "natural language processing",
+    "voice AI",
+    "Web Speech API",
+    "Sheharyar Sarmad",
+    "AI zero to hero",
   ],
-  authors: [{ name: "Sheharyar Sarmad" }],
+
+  authors: [
+    {
+      name: "Sheharyar Sarmad",
+      url: "https://github.com/Sheharyar-Sarmad",
+    },
+  ],
+  creator: "Sheharyar Sarmad",
+  publisher: "Sheharyar Sarmad",
+
+  icons: {
+    icon: [
+      { url: "/meta_logo.png", type: "image/png" },
+    ],
+    shortcut: "/meta_logo.png",
+    apple: "/meta_logo.png",
+  },
+
   openGraph: {
-    title: "QuoteLab",
-    description:
-      "Next-word prediction powered by an LSTM trained on famous quotes.",
     type: "website",
+    siteName: "QuoteLab",
+    title: "QuoteLab",
+    description: "Complete any quote, powered by AI.",
+    images: [
+      {
+        url: "/meta_home_banner.png",
+        width: 1600,
+        height: 500,
+        alt: "QuoteLab — Complete any quote, powered by AI",
+      },
+    ],
+  },
+
+  twitter: {
+    card: "summary_large_image",
+    title: "QuoteLab",
+    description: "Complete any quote, powered by AI.",
+    images: ["/meta_home_banner.png"],
+  },
+
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
 };
 

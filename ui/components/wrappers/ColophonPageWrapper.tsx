@@ -861,7 +861,7 @@ function Dataset() {
         >
           <motion.div variants={revealSlow} className="lg:col-span-2">
             <a
-              href="https://www.kaggle.com/datasets/manann/quotes-500k"
+              href="https://github.com/Sheharyar-Sarmad/Quote-Lab/blob/main/model/data/qoute_dataset.csv"
               target="_blank"
               rel="noreferrer noopener"
               className={cn("group flex h-full flex-col rounded-3xl p-6", CARD_BASE)}

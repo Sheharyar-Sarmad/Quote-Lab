@@ -7,11 +7,26 @@ import { motion, AnimatePresence, Variants } from "framer-motion";
 import { useTheme } from "next-themes";
 import { useEffect, useLayoutEffect, useState } from "react";
 import {
-  House, Sparkle, Flask, List, X, Sun, Moon, MoonStars,
-  GithubLogo, LinkedinLogo, EnvelopeSimple, CaretLeft, CaretRight,
+  House,
+  Sparkle,
+  Flask,
+  List,
+  X,
+  Sun,
+  Moon,
+  MoonStars,
+  GithubLogo,
+  LinkedinLogo,
+  EnvelopeSimple,
+  CaretLeft,
+  CaretRight,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 //  Constants
@@ -23,9 +38,21 @@ const NAV_ITEMS = [
 ] as const;
 
 const SOCIALS = [
-  { label: "GitHub", href: "https://github.com/Sheharyar-Sarmad", icon: GithubLogo },
-  { label: "LinkedIn", href: "https://www.linkedin.com/in/sheharyar-sarmad-9b7736289/", icon: LinkedinLogo },
-  { label: "Email", href: "https://mail.google.com/mail/u/0/?fs=1&to=developersheharyar2010@gmail.com&tf=cm", icon: EnvelopeSimple },
+  {
+    label: "GitHub",
+    href: "https://github.com/Sheharyar-Sarmad",
+    icon: GithubLogo,
+  },
+  {
+    label: "LinkedIn",
+    href: "https://www.linkedin.com/in/sheharyar-sarmad-9b7736289/",
+    icon: LinkedinLogo,
+  },
+  {
+    label: "Email",
+    href: "https://mail.google.com/mail/u/0/?fs=1&to=developersheharyar2010@gmail.com&tf=cm",
+    icon: EnvelopeSimple,
+  },
 ] as const;
 
 const THEMES = [
@@ -41,7 +68,6 @@ const SIDEBAR_STORAGE_KEY = "ql-sidebar-desktop";
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
-
 //  Animation variants
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -49,8 +75,14 @@ const EASE = [0.22, 1, 0.36, 1] as const;
 const sidebarContainer: Variants = {
   hidden: { opacity: 0, x: -40 },
   visible: {
-    opacity: 1, x: 0,
-    transition: { duration: 1.4, ease: EASE, delayChildren: 0.4, staggerChildren: 0.15 },
+    opacity: 1,
+    x: 0,
+    transition: {
+      duration: 1.4,
+      ease: EASE,
+      delayChildren: 0.4,
+      staggerChildren: 0.15,
+    },
   },
 };
 
@@ -61,7 +93,11 @@ const itemVariants: Variants = {
 
 const footerVariants: Variants = {
   hidden: { opacity: 0, y: 18 },
-  visible: { opacity: 1, y: 0, transition: { duration: 1, ease: EASE, delay: 0.2 } },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 1, ease: EASE, delay: 0.2 },
+  },
 };
 
 //  Sidebar root
@@ -118,8 +154,10 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           variants={sidebarContainer}
           initial="hidden"
           animate={mounted ? "visible" : "hidden"}
-          className="flex h-full flex-col border-r border-border/60 bg-background/60 backdrop-blur-2xl"
-          style={{ width: desktopOpen ? DESKTOP_WIDTH : DESKTOP_COLLAPSED_WIDTH }}
+          className="flex h-full flex-col border-r border-border/60 bg-background/80 backdrop-blur-2xl"
+          style={{
+            width: desktopOpen ? DESKTOP_WIDTH : DESKTOP_COLLAPSED_WIDTH,
+          }}
         >
           <SidebarContent
             pathname={pathname}

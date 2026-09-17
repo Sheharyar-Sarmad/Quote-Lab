@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-} from "react";
+import { createContext, useContext, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import Lenis from "lenis";
 import { SceneBackground } from "@/components/three/SceneBG";
@@ -49,8 +44,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     let resizeObserver: ResizeObserver | null = null;
     let cancelled = false;
 
-    // ✅ Fix #1: delay init by a tick so StrictMode's first mount
-    // has already been torn down. Only the second instance survives.
     const timer = window.setTimeout(() => {
       if (cancelled) return;
 
@@ -65,26 +58,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         autoRaf: false,
         infinite: false,
         gestureOrientation: "vertical",
-        // Let inputs / textareas / [data-lenis-prevent] scroll natively
         prevent: (node) => {
           if (!node) return false;
           const tag = (node as HTMLElement).tagName;
           if (tag === "INPUT" || tag === "TEXTAREA") return true;
           if ((node as HTMLElement).isContentEditable) return true;
-          return (node as HTMLElement).closest?.("[data-lenis-prevent]") != null;
+          return (
+            (node as HTMLElement).closest?.("[data-lenis-prevent]") != null
+          );
         },
       });
 
       lenisRef.current = lenis;
 
-      // RAF loop — captured in closure so it can't be orphaned
       const raf = (time: number) => {
         lenis.raf(time);
         rafId = requestAnimationFrame(raf);
       };
       rafId = requestAnimationFrame(raf);
 
-      // ✅ Fix #2: recalculate whenever the page grows/shrinks
       const recalc = () => lenis.resize();
       window.addEventListener("resize", recalc);
       window.addEventListener("orientationchange", recalc);
@@ -95,7 +87,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         resizeObserver.observe(document.documentElement);
       }
 
-      // ✅ Fix #3: browsers pause RAF when tab is hidden — restart on return
       const onVisibility = () => {
         if (document.visibilityState === "visible") {
           recalc();
@@ -106,7 +97,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       };
       document.addEventListener("visibilitychange", onVisibility);
 
-      // Expose via window for debugging (optional, harmless)
       (window as unknown as { __lenis?: Lenis }).__lenis = lenis;
     }, 0);
 
@@ -124,7 +114,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // ✅ Fix #4: reset scroll on route change, then recalc after content mounts
+  // Reset scroll on route change, then recalc after content mounts
   useEffect(() => {
     const lenis = lenisRef.current;
     if (!lenis) return;
@@ -133,14 +123,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => cancelAnimationFrame(id);
   }, [pathname]);
 
-  /* Expose a safe scrollTo that always goes through Lenis */
-  const scrollTo: LenisContextValue["scrollTo"] = (
-    target,
-    opts,
-  ) => {
+  /* Safe scrollTo — always goes through Lenis when available */
+  const scrollTo: LenisContextValue["scrollTo"] = (target, opts) => {
     const lenis = lenisRef.current;
     if (!lenis) {
-      // Lenis not ready — fall back to native so nothing is silent
       if (typeof target === "number") {
         window.scrollTo({ top: target, behavior: "smooth" });
       } else if (typeof target === "string") {
@@ -160,8 +146,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <LenisContext.Provider value={{ scrollTo }}>
-      <div className="relative w-full">
-        <SceneBackground />
+      {/*
+          Outer wrapper is now painted dark BEFORE the canvas mounts.
+           The `bg-background` class uses your theme's background token.
+           The inline `backgroundColor` is a hard fallback in case the
+           theme hasn't resolved yet — this is what kills the white flash.
+      */}
+      <div className="relative w-full bg-background">
+        {/* key by pathname → remounts on route change → intro replays */}
+        <SceneBackground key={pathname} />
 
         <div className="pointer-events-none fixed inset-0 z-[1] grid-bg opacity-40" />
         <div className="pointer-events-none fixed inset-0 z-[2] noise-overlay" />

@@ -123,13 +123,25 @@
     @apply border-border outline-ring/50;
   }
 
-body {
-  @apply text-foreground;
-  background: var(--background);
-  font-feature-settings: "rlig" 1, "calt" 1;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+  html {
+    background-color: var(--background);
+    color-scheme: light;
+    overscroll-behavior: none;
+  }
+
+  html.dark,
+  html.dim {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply text-foreground;
+    background: var(--background);
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   h1,
   h2,
   h3,
