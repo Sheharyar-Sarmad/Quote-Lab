@@ -28,14 +28,6 @@ What makes it interesting:
 
 ---
 
-## 🎬 Demo / Screenshots
-
-> 📸 Screenshots coming soon — will be added here once the UI is finalized.
-
-![Screenshot](./docs/screenshot.png)
-
----
-
 ## ✨ Features
 
 - 🔮 LSTM-based next-word prediction from a partial quote
