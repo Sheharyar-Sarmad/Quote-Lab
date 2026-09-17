@@ -1,32 +1,43 @@
-from fastapi import APIRouter, HTTPException
-from app.schemas import PredictRequest, PredictResponse, Prediction
-from app.services.predictor import Predictor
+from typing import List, Dict
+import numpy as np
+from app.config import Config
 from app.services.model_loader import ModelLoader
 
 
-class PredictRouter:
-    # Next-word prediction endpoint
+class Predictor:
+    # Performs next-word prediction using the loaded TFLite model
 
-    def __init__(self) -> None:
-        self.router = APIRouter()
-        self.router.add_api_route(
-            "/predict",
-            self.predict,
-            methods=["POST"],
-            response_model=PredictResponse,
-        )
+    @staticmethod
+    def _pad_sequence(seq: List[int]) -> np.ndarray:
+        """Applies pre-padding to match Config.MAX_LEN."""
+        if len(seq) >= Config.MAX_LEN:
+            seq = seq[-Config.MAX_LEN:]
+        else:
+            seq = [Config.PAD_TOKEN_INDEX] * (Config.MAX_LEN - len(seq)) + seq
+        return np.array([seq], dtype=np.int32)
 
-    def predict(self, request: PredictRequest) -> PredictResponse:
-        try:
-            # Lazy-load the model on first real request
-            if not ModelLoader.is_loaded():
-                ModelLoader.load()
+    @classmethod
+    def predict(cls, prompt: str, top_k: int = Config.DEFAULT_TOP_K) -> List[Dict]:
+        interpreter = ModelLoader.get_interpreter()
+        tokenizer = ModelLoader.get_tokenizer()
+        index_to_word = ModelLoader.get_index_to_word()
 
-            raw = Predictor.predict(request.prompt, top_k=request.top_k)
-            predictions = [Prediction(**p) for p in raw]
-            return PredictResponse(prompt=request.prompt, predictions=predictions)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        seq = tokenizer.texts_to_sequences([prompt])[0]
+        padded = cls._pad_sequence(seq)
 
+        input_details = interpreter.get_input_details()
+        output_details = interpreter.get_output_details()
 
-predict_router = PredictRouter().router
+        interpreter.set_tensor(input_details[0]["index"], padded)
+        interpreter.invoke()
+
+        probs = interpreter.get_tensor(output_details[0]["index"])[0]
+        top_indices = np.argsort(probs)[-top_k:][::-1]
+
+        return [
+            {
+                "word": index_to_word.get(int(i), Config.UNK_TOKEN),
+                "probability": float(probs[i]),
+            }
+            for i in top_indices
+        ]
