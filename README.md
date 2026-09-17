@@ -91,39 +91,6 @@ What makes it interesting:
 
 ---
 
-## 📁 Project Structure
-
-```
-QuoteLab/
-├── ui/                         # Frontend (Next.js)
-│   ├── app/                    # App Router pages & layouts
-│   ├── components/             # UI components (chat, charts, voice controls)
-│   ├── lib/                    # Groq client, TTS/STT helpers, PDF export
-│   ├── public/                 # Static assets
-│   ├── styles/                 # Tailwind config & globals
-│   ├── package.json
-│   └── .env.local.example
-│
-├── model/                      # Backend (FastAPI + ML)
-│   ├── app/
-│   │   ├── main.py             # FastAPI entrypoint
-│   │   ├── predict.py          # /predict route logic
-│   │   └── schemas.py          # Pydantic request/response models
-│   ├── training/
-│   │   ├── train_lstm.py       # LSTM training script
-│   │   └── preprocess.py       # Tokenization & sequence generation
-│   ├── artifacts/
-│   │   └── quotelab_lstm.tflite
-│   ├── requirements.txt
-│   └── .env.example
-│
-├── docs/                       # Screenshots & documentation assets
-├── LICENSE
-└── README.md
-```
-
----
-
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -168,7 +135,6 @@ The app will be available at `http://localhost:3000`, with the API running at `h
 |-------------------------------|----------|---------------------------------------------------|
 | `NEXT_PUBLIC_GROQ_API_KEY`    | `ui/`    | Client-side Groq API key for streaming completions |
 | `NEXT_PUBLIC_API_BASE_URL`    | `ui/`    | Base URL of the FastAPI backend                    |
-| `GROQ_API_KEY`                | `model/` | Server-side Groq API key (if used by backend)      |
 
 > ⚠️ Never commit your `.env` files. Use the provided `.env.example` files as templates.
 
@@ -220,10 +186,10 @@ Predicts the most likely next word(s) given a partial quote using the trained LS
 ## 🌐 Live Demo
 
 **Frontend:**
-> 🚧 Live URLs coming soon — will be updated after deployment.
+> https://quote-lab-dun.vercel.app/
 
 **Backend:**
-> 🚧 Live URLs coming soon — will be updated after deployment.
+> https://quote-lab.onrender.com
 
 ---
 
@@ -266,5 +232,4 @@ This project is licensed under the **MIT License**. See [LICENSE](./LICENSE) for
 
 Built with ❤️ by **Sheharyar Sarmad**
 
-</div>#   Q u o t e - L a b  
- 
+</div>#
